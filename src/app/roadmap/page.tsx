@@ -1,252 +1,352 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
+import Script from "next/script";
 
-type RoadmapItem = { label: string; done?: boolean };
-type Phase = { title: string; items: RoadmapItem[] };
+export const metadata: Metadata = {
+  title: "Roadmap — American AI Token ($AAT)",
+  description:
+    "AAT roadmap: Launch & Foundations, AI Core, DeFi Intelligence, Agents, Governance. Powered by Grok XAI, Gemini, and ChatGPT.",
+  alternates: { canonical: "https://theaat.xyz/roadmap" },
+};
 
-const PHASES: Phase[] = [
+type Item = {
+  title: string;
+  desc: string;
+  tags?: string[];
+  done?: boolean;   // ✅ mark completed items
+};
+
+const PHASES: { phase: string; blurb?: string; items: Item[] }[] = [
   {
-    title: "Phase 0 — Baseline",
+    phase: "Phase 0 — Launch & Foundations (DONE)",
+    blurb:
+      "Everything needed to exist and iterate fast. Deployed token, verified contract, live MVP site, multi-provider AI endpoint.",
     items: [
-      { label: "Mainnet $AAT ERC-20 Deploy & Verify" },
-      { label: "Token Logo + Tokenlist JSON" },
-      { label: "Minimal Website + AI Lab Skeleton" },
-      { label: "Wallet Connect + “Add Token” Button" },
+      {
+        title: "Deploy $AAT ERC-20 (Mainnet)",
+        desc: "Contract deployed to 0x993aF915901CC6c2b8Ee38260621dc889DCb3C54 and verified on Etherscan.",
+        tags: ["Token", "Mainnet"],
+        done: true,
+      },
+      {
+        title: "Etherscan setup (name, symbol, logo)",
+        desc: "Token name/symbol configured; logo & metadata set so wallets/explorers show brand.",
+        tags: ["Branding"],
+        done: true,
+      },
+      {
+        title: "GitHub org & repos",
+        desc: "Organization and repos created (contracts + website) for collaborative development.",
+        tags: ["Infra", "GitHub"],
+        done: true,
+      },
+      {
+        title: "Website MVP + AI Lab",
+        desc: "Next.js app with AI chat endpoint and UI. Supports OpenAI, Gemini, and Grok with fallbacks.",
+        tags: ["Web", "AI"],
+        done: true,
+      },
+      {
+        title: "Uniswap ‘Buy $AAT’ link",
+        desc: "Direct swap link wired on the site to make acquisition easy.",
+        tags: ["Growth", "UX"],
+        done: true,
+      },
+      {
+        title: "Roadmap page + SEO",
+        desc: "This page, with JSON-LD ItemList and optimized metadata for Google indexing.",
+        tags: ["SEO"],
+        done: true,
+      },
+      // (Keep infra items here if you later want to tick them)
+      // { title: "Vercel project + domain wired", desc: "Auto-deploys from main; custom domain connected.", tags: ["Infra"], done: true },
+    ],
+  },
+
+  // ===== Your previously planned phases (unchecked until we build them) =====
+
+  {
+    phase: "Phase 1 — Core & Security",
+    blurb:
+      "Foundation + trust. Aggregated AI baseline, security agents, understandable on-chain insights.",
+    items: [
+      {
+        title: "Fraud Detection Agent",
+        desc: "Scans tx patterns/approvals to flag phishing & anomalies; bounties in $AAT.",
+        tags: ["Security", "Agent", "Grok/Gem/ChatGPT"],
+      },
+      {
+        title: "AI-Powered Smart Contract Auditing",
+        desc: "Heuristic audit: known-exploit diffing, tokenomics rug-risk, ‘Trust Score’.",
+        tags: ["Security", "Auditing"],
+      },
+      {
+        title: "Etherscan Explain",
+        desc: "Human-readable summaries for complex txs (multi-call, swap+stake+borrow).",
+        tags: ["UX", "Analytics"],
+      },
     ],
   },
   {
-    title: "Phase 1 — Foundation & Security",
+    phase: "Phase 2 — AI Core & Live Signals",
+    blurb:
+      "Live data + truth routing. X sentiment (Grok), bias-check (Gemini), reasoning (ChatGPT).",
     items: [
-      { label: "Safe Multisig Treasury" },
-      { label: "Contract Timelock & Ownership Plan" },
-      { label: "Chainlink Price Oracle Integration" },
-      { label: "Monitoring, Alerts & On-chain Analytics" },
+      {
+        title: "Autonomous Sentiment Agent",
+        desc: "Real-time X/Reddit/news monitoring; alerts & suggested rebalances.",
+        tags: ["Agent", "Sentiment", "Signals"],
+      },
+      {
+        title: "Real-Time Macro Event Impact",
+        desc: "Live dashboard during Fed/ECB/CPI prints with sentiment + scenario analysis.",
+        tags: ["Macro", "Live"],
+      },
+      {
+        title: "News Aggregation Agent",
+        desc: "Personalized, bias-checked summaries; staking unlocks premium filters.",
+        tags: ["Agent", "Feed"],
+      },
     ],
   },
   {
-    title: "Phase 2 — AI Core (Tri-Provider)",
+    phase: "Phase 3 — Investor Tools (Alpha Tier)",
+    blurb:
+      "Token-gated alpha surface + portfolio protection. Backtest and deploy strategies.",
     items: [
-      { label: "Provider Router (OpenAI / Gemini / Grok)" },
-      { label: "Sentiment Ingestion from X (Grok)" },
-      { label: "Macro “What-If” Engine (Gemini)" },
-      { label: "Portfolio Optimizer & Risk Scoring (OpenAI)" },
-      { label: "RAG Data Layer for Market Docs" },
-      { label: "Moderation, Guardrails & Compliance Layer" },
-      { label: "Caching, Rate-Limits & Cost Controls" },
+      {
+        title: "Alpha Cortex Strategy Vault",
+        desc: "AI-generated high-alpha strategies (pairs/event/factor).",
+        tags: ["Alpha", "Vault", "Token-Gated"],
+      },
+      {
+        title: "Predictive Hedging Agent",
+        desc: "Scenario sims (rates/liquidity) + WLFI USD1 hedges; sandbox → live via $AAT.",
+        tags: ["Agent", "Hedging"],
+      },
+      {
+        title: "Portfolio Guardian Agent",
+        desc: "Watchdog for volatility/credit/liquidity risks; cross-verified alerts.",
+        tags: ["Agent", "Risk"],
+      },
+      {
+        title: "Daily ‘State of the Market’ PDF",
+        desc: "Morning brief with news, on-chain, sentiment. Lite free; full for holders.",
+        tags: ["Reports", "Daily"],
+      },
     ],
   },
   {
-    title: "Phase 3 — Product Features",
+    phase: "Phase 4 — DeFi Intelligence",
+    blurb:
+      "Beyond TVL: predictive yields, undervalued protocol discovery, DAO sentiment.",
     items: [
-      { label: "AI Signals Feed (Short/Medium-Term)" },
-      { label: "Real-Time Alerts & Webhooks" },
-      { label: "Watchlists & Custom Screens" },
-      { label: "Strategy Backtester (Paper)" },
-      { label: "Research Notes Generator" },
-      { label: "AAT Staker-Only Premium Endpoints" },
+      {
+        title: "“DeFi Llama Killer” — AI Edition",
+        desc: "Predictive yield trends, undervalued protocols, governance analysis.",
+        tags: ["Analytics", "DeFi"],
+      },
+      {
+        title: "WLFI Stablecoin Yield Optimizer",
+        desc: "Continuous scan for safest/highest WLFI USD1 yields with risk scores.",
+        tags: ["WLFI", "Yield"],
+      },
+      {
+        title: "Yield Farming Optimizer Agent",
+        desc: "Auto-rotate/compound (opt-in); simulations; deflationary fee burning.",
+        tags: ["Agent", "Yield"],
+      },
     ],
   },
   {
-    title: "Phase 4 — Liquidity & Launch",
+    phase: "Phase 5 — Agents & Automation",
+    blurb:
+      "From tool → platform. No-code agent builder and cross-chain automation (user-approved).",
     items: [
-      { label: "Presale / Auction Module" },
-      { label: "Initial Liquidity Plan & Auto LP Tools" },
-      { label: "Buyback/Burn Automation Hooks" },
-      { label: "CoinGecko/CMC Listings Readiness" },
+      {
+        title: "On-Chain AI Agent Builder (No-Code)",
+        desc: "Compose triggers (X keywords/price) + actions (alert/trade/hedge).",
+        tags: ["Builder", "No-Code", "Agent"],
+      },
+      {
+        title: "Cross-Chain Arbitrage Agent",
+        desc: "Detect AAT/WLFI price dislocations (EVM + Solana); suggest/execute swaps.",
+        tags: ["Agent", "Arb", "Multi-Chain"],
+      },
     ],
   },
   {
-    title: "Phase 5 — Multichain Expansion",
+    phase: "Phase 6 — Builders & Education",
+    blurb:
+      "Learning agents & dev kits; open bounties for plugins and data adapters.",
     items: [
-      { label: "Base + Arbitrum Deploys" },
-      { label: "Cross-Chain Bridge (e.g., Wormhole/Axelar)" },
-      { label: "Stable Pairs (USDT/USDC) + WETH/WBTC" },
-      { label: "Solana Strategy (WLFI / USD1 Synergy)" },
+      {
+        title: "Personalized Learning Agent",
+        desc: "Adaptive tutorials for investors and devs; unlockable tracks for $AAT.",
+        tags: ["Agent", "Education"],
+      },
+      {
+        title: "Tokenomics Simulator",
+        desc: "Supply/vesting/utility modeling with inflation/deflation projections.",
+        tags: ["Modeling", "Simulator"],
+      },
     ],
   },
   {
-    title: "Phase 6 — Dev & Ecosystem",
+    phase: "Phase 7 — Growth & Governance",
+    blurb:
+      "Community acquisition, DAO intelligence, enterprise queries, airdrop targeting.",
     items: [
-      { label: "Public API & SDK" },
-      { label: "AAT AI Marketplace (Bounties)" },
-      { label: "Example Bots (X, Telegram, Discord)" },
-      { label: "Partner Integrations (DEXs, Wallets)" },
+      {
+        title: "Whitelist & Airdrop AI Screener",
+        desc: "Find ideal users via on-chain behaviors; projects pay in $AAT.",
+        tags: ["Growth", "B2B"],
+      },
+      {
+        title: "DAO Proposal Agent",
+        desc: "AI drafts/evaluates proposals; agent-assisted pros/cons for voters.",
+        tags: ["DAO", "Governance"],
+      },
+      {
+        title: "Enterprise Query Agent",
+        desc: "Advanced, privacy-aware analysis; optional zk-proofs; metered credits.",
+        tags: ["Enterprise", "Agent"],
+      },
     ],
   },
+
   {
-    title: "Phase 7 — Governance & Incentives",
+    phase: "Phase 8 — Apps & Distribution",
+    blurb:
+      "Native & extension clients so AAT intelligence is everywhere users trade. Unified auth, WalletConnect, and real-time AI alerts.",
     items: [
-      { label: "Staking & Fee-Share Model" },
-      { label: "On-chain Voting (Snapshot/SafeSnap)" },
-      { label: "Referral & Ambassador Programs" },
-      { label: "Grants for Research & Tools" },
+      {
+        title: "Google Chrome Extension (Trader Companion)",
+        desc:
+          "Overlay AI insights on Etherscan/DEXs/CEXs: Grok X sentiment, Gemini charts, tx ‘Explain’, risk flags, quick-swap deeplinks.",
+        tags: ["Chrome", "Extension", "Grok/Gemini/ChatGPT", "WalletConnect"],
+      },
+      {
+        title: "Apple iOS Mobile App",
+        desc:
+          "React Native (Expo) app: wallet connect, watchlists, push alerts, on-device secure storage, Uniswap deeplinks, AI Lab mini.",
+        tags: ["iOS", "Mobile", "Expo", "Push"],
+      },
+      {
+        title: "Android Mobile App",
+        desc:
+          "React Native (Expo) parity with iOS: portfolio view, alerts, agent triggers, WLFI USD1 yield tiles, light/dark UI.",
+        tags: ["Android", "Mobile", "Expo", "Push"],
+      },
     ],
   },
-  {
-    title: "Phase 8 — Growth & Ops",
-    items: [
-      { label: "Docs & Playbooks" },
-      { label: "Press Kit & Launch Campaigns" },
-      { label: "KPI Dashboard & Weekly Reports" },
-      { label: "Bug Bounty & Audit Program" },
-    ],
-  },
-  {
-    title: "Phase 9 — Enterprise & Data",
-    items: [
-      { label: "Data Lake & ETL Pipelines" },
-      { label: "Fine-Tuning / Toolformer Experiments" },
-      { label: "Model Evaluation Harness" },
-      { label: "Compliance: Terms, Privacy, Disclaimers" },
-    ],
-  },
+
+
 ];
 
-const STORAGE_KEY = "aat-roadmap-v1";
-
-type SavedState = Record<string, boolean>;
+const ALL_ITEMS = PHASES.flatMap((p) => p.items.map((i) => i.title));
 
 export default function RoadmapPage() {
-  const [checked, setChecked] = useState<SavedState>({});
-
-  // Load progress from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setChecked(JSON.parse(raw));
-    } catch {}
-  }, []);
-
-  // Persist progress
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(checked));
-    } catch {}
-  }, [checked]);
-
-  const totals = useMemo(() => {
-    const perPhase = PHASES.map((p) => {
-      const total = p.items.length;
-      const done = p.items.filter((it) => checked[itemKey(p.title, it.label)]).length;
-      const pct = Math.round((done / Math.max(1, total)) * 100);
-      return { title: p.title, total, done, pct };
-    });
-    const allDone = perPhase.reduce((a, b) => a + b.done, 0);
-    const allTotal = PHASES.reduce((a, p) => a + p.items.length, 0);
-    const allPct = Math.round((allDone / Math.max(1, allTotal)) * 100);
-    return { perPhase, allDone, allTotal, allPct };
-  }, [checked]);
-
-  function itemKey(phaseTitle: string, label: string) {
-    return `${phaseTitle}::${label}`;
-  }
-
-  function toggleItem(phaseTitle: string, label: string, value: boolean) {
-    const key = itemKey(phaseTitle, label);
-    setChecked((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function setPhase(phaseTitle: string, value: boolean) {
-    const next = { ...checked };
-    const phase = PHASES.find((p) => p.title === phaseTitle);
-    if (!phase) return;
-    phase.items.forEach((it) => {
-      next[itemKey(phaseTitle, it.label)] = value;
-    });
-    setChecked(next);
-  }
-
-  function resetAll() {
-    setChecked({});
-  }
+  const itemListJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: ALL_ITEMS.map((name, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      name,
+      url: `https://theaat.xyz/roadmap#${slugify(name)}`,
+    })),
+  };
 
   return (
     <>
+      <Script
+        id="roadmap-itemlist"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+      />
       <Header />
-      <main className="max-w-6xl mx-auto px-4 py-10">
-        <div className="mb-8 rounded-2xl border p-6 bg-gradient-to-br from-indigo-50 via-white to-rose-50">
-          <h1 className="text-3xl md:text-5xl font-bold">AAT Roadmap</h1>
-          <p className="mt-3 text-neutral-600">
-            99% AI (OpenAI + Gemini + Grok), 1% human execution. Progress is saved locally in your browser.
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className="text-sm text-neutral-700">
-              Overall Progress: <b>{totals.allDone}</b> / {totals.allTotal} ({totals.allPct}%)
-            </span>
-            <div className="h-2 w-full md:w-72 bg-neutral-200 rounded-full overflow-hidden">
-              <div className="h-full bg-black" style={{ width: `${totals.allPct}%` }} />
-            </div>
-            <button
-              onClick={resetAll}
-              className="px-3 py-1.5 rounded-lg border hover:bg-neutral-50 text-sm"
-              title="Clear local progress"
-            >
-              Reset Progress
-            </button>
-            <Link href="/lab" className="px-3 py-1.5 rounded-lg bg-black text-white text-sm">
-              Open AI Lab
-            </Link>
-          </div>
+      <main className="max-w-6xl mx-auto px-4 py-14">
+        <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+          $AAT Roadmap
+        </h1>
+        <p className="mt-4 text-neutral-600 max-w-3xl">
+          Built by <strong>99% AI</strong> (Grok XAI + Gemini + ChatGPT) and{" "}
+          <strong>1% human</strong>. From launch to fully agentic,
+          multi-chain DeFi intelligence.
+        </p>
+
+        <div className="mt-8 flex gap-3">
+          <a
+            className="px-5 py-3 rounded-xl bg-black text-white"
+            href="https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x993aF915901CC6c2b8Ee38260621dc889DCb3C54"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Buy $AAT
+          </a>
+          <Link href="/lab" className="px-5 py-3 rounded-xl border">
+            Try AI Lab
+          </Link>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {PHASES.map((phase, idx) => {
-            const state = totals.perPhase[idx];
-            return (
-              <section key={phase.title} className="rounded-2xl border p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-xl font-semibold">{phase.title}</h2>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-neutral-600">
-                      {state.done}/{state.total} ({state.pct}%)
-                    </span>
-                    <button
-                      onClick={() => setPhase(phase.title, true)}
-                      className="px-2 py-1 rounded-md border text-xs hover:bg-neutral-50"
-                    >
-                      Mark all
-                    </button>
-                    <button
-                      onClick={() => setPhase(phase.title, false)}
-                      className="px-2 py-1 rounded-md border text-xs hover:bg-neutral-50"
-                    >
-                      Unmark all
-                    </button>
-                  </div>
-                </div>
+        <div className="mt-12 space-y-10">
+          {PHASES.map(({ phase, blurb, items }) => (
+            <section key={phase} className="rounded-3xl border p-6 md:p-8">
+              <h2 className="text-2xl md:text-3xl font-semibold">{phase}</h2>
+              {blurb && <p className="mt-2 text-neutral-600">{blurb}</p>}
 
-                <div className="mt-3 h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-black" style={{ width: `${state.pct}%` }} />
-                </div>
-
-                <ul className="mt-4 space-y-2">
-                  {phase.items.map((it) => {
-                    const key = itemKey(phase.title, it.label);
-                    const isChecked = !!checked[key];
-                    return (
-                      <li key={key} className="flex items-start gap-3">
-                        <input
-                          id={key}
-                          type="checkbox"
-                          className="mt-1 h-4 w-4"
-                          checked={isChecked}
-                          onChange={(e) => toggleItem(phase.title, it.label, e.target.checked)}
-                        />
-                        <label htmlFor={key} className="cursor-pointer">
-                          {it.label}
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
+              <ul className="mt-6 grid md:grid-cols-2 gap-6">
+                {items.map((item) => (
+                  <li key={item.title} id={slugify(item.title)} className="flex gap-3">
+                    <input
+                      type="checkbox"
+                      disabled
+                      checked={!!item.done}
+                      className={`mt-1 h-5 w-5 ${item.done ? "accent-green-600" : "accent-neutral-400"}`}
+                      aria-label={item.title}
+                      title={item.done ? "Completed" : "Planned"}
+                    />
+                    <div>
+                      <div className="font-medium flex items-center gap-2">
+                        {item.title}
+                        {item.done && (
+                          <span className="text-xs rounded-full bg-green-600 text-white px-2 py-0.5">
+                            DONE
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-neutral-600 mt-1">{item.desc}</p>
+                      {item.tags && item.tags.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {item.tags.map((t) => (
+                            <span
+                              key={t}
+                              className="text-xs rounded-full border px-2 py-1"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
+
+        <p className="mt-10 text-xs text-neutral-500">
+          Last updated: {new Date().toISOString().slice(0, 10)} • Some items may shift as
+          dependencies land. Alpha-gated features require staking $AAT.
+        </p>
       </main>
     </>
   );
+}
+
+function slugify(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }

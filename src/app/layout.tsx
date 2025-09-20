@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Web3Providers from '@/lib/wagmi';
+import SupportChat from '@/components/SupportChat';
 
 export const metadata: Metadata = {
   title: 'American AI ($AAT)',
@@ -11,7 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <Web3Providers>{children}</Web3Providers>
+        <Web3Providers>
+          {children}
+          <SupportChat />
+        </Web3Providers>
       </body>
     </html>
   );
