@@ -1,99 +1,71 @@
-// src/components/ChatBox.tsx
 "use client";
+import { useState } from "react";
 
-import React, { useState } from "react";
-
-type Provider = "openai" | "gemini" | "xai";
+const PROVIDERS = [
+  { value: "openai", label: "OpenAI" },
+  { value: "gemini", label: "Gemini" },
+  { value: "grok",   label: "Grok (xAI)" },
+];
 
 export default function ChatBox() {
-  const [provider, setProvider] = useState<Provider>("openai");
+  const [provider, setProvider] = useState("openai");
   const [prompt, setPrompt] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [out, setOut] = useState("");
 
-  async function ask(p: Provider) {
-    const res = await fetch("/api/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider: p, prompt }),
-    });
-    return res;
-  }
-
-  async function onSend() {
-    if (!prompt.trim()) return;
-    setLoading(true);
-    setAnswer("");
-
+  async function send() {
+    setOut("Thinking…");
     try {
-      // Primary call
-      let res = await ask(provider);
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, prompt }),
+      });
 
-      // Auto-fallbacks:
-      // - If OpenAI rate-limits or errors, try Gemini
-      // - If xAI rate-limits or errors, try Gemini
-      if (!res.ok && (provider === "openai" || provider === "xai")) {
-        const tag =
-          provider === "openai"
-            ? "(OpenAI quota/rate limit or error. Answered with Gemini.)\n\n"
-            : "(Grok/xAI error. Answered with Gemini.)\n\n";
-        const fallback = await ask("gemini");
-        if (fallback.ok) {
-          const data = await fallback.json();
-          setAnswer(tag + (data.text || ""));
-          return;
-        } else {
-          const err = await fallback.json().catch(() => ({}));
-          setAnswer(tag + (err.error || "Unknown error from Gemini"));
-          return;
-        }
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => "");
+        data = { ok: false, error: text || res.statusText || `HTTP ${res.status}` };
       }
 
-      // Normal path
-      const data = await res.json();
-      if (res.ok) {
-        setAnswer(String(data.text || "").trim());
+      if (data.ok) {
+        setOut(`(${data.provider}) ${data.text}`);
       } else {
-        setAnswer(data.error || "Unknown error");
+        setOut(data.error || `Error ${res.status}`);
       }
     } catch (e: any) {
-      setAnswer(e?.message || "Unexpected error");
-    } finally {
-      setLoading(false);
+      setOut(e?.message || String(e));
     }
   }
 
   return (
-    <div className="max-w-3xl mx-auto w-full">
-      <label className="block text-sm mb-2">Provider</label>
-      <select
-        className="border rounded px-3 py-2"
-        value={provider}
-        onChange={(e) => setProvider(e.target.value as Provider)}
-      >
-        <option value="openai">OpenAI</option>
-        <option value="gemini">Gemini</option>
-        <option value="xai">Grok (xAI)</option>
-      </select>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <label className="text-sm">Provider</label>
+        <select
+          className="border rounded px-3 py-2"
+          value={provider}
+          onChange={(e) => setProvider(e.target.value)}
+        >
+          {PROVIDERS.map(p => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+      </div>
 
       <textarea
-        className="w-full border rounded mt-4 p-3 h-40"
+        className="w-full h-40 border rounded p-3"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="Ask anything about markets, tokens, or AAT tools…"
+        placeholder="Ask anything (markets, WLFI, macro, portfolio)…"
       />
 
-      <button
-        onClick={onSend}
-        disabled={loading}
-        className="mt-3 px-5 py-2 rounded bg-black text-white disabled:opacity-50"
-      >
-        {loading ? "Thinking…" : "Send"}
+      <button onClick={send} className="px-4 py-2 rounded bg-black text-white">
+        Send
       </button>
 
-      <pre className="mt-4 whitespace-pre-wrap text-sm p-3 border rounded">
-        {answer}
-      </pre>
+      {out ? <pre className="whitespace-pre-wrap border rounded p-3">{out}</pre> : null}
     </div>
   );
 }
