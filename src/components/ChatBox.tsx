@@ -1,71 +1,91 @@
 "use client";
+
 import { useState } from "react";
 
-const PROVIDERS = [
-  { value: "openai", label: "OpenAI" },
-  { value: "gemini", label: "Gemini" },
-  { value: "grok",   label: "Grok (xAI)" },
-];
+type Provider = "openai" | "gemini" | "grok";
 
 export default function ChatBox() {
-  const [provider, setProvider] = useState("openai");
+  const [provider, setProvider] = useState<Provider>("openai");
   const [prompt, setPrompt] = useState("");
-  const [out, setOut] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [meta, setMeta] = useState<{ provider?: string; fallbacks?: any }>();
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function send() {
-    setOut("Thinking…");
+    setLoading(true);
+    setErr(null);
+    setAnswer("");
+    setMeta(undefined);
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ provider, prompt }),
       });
 
-      let data: any;
-      try {
-        data = await res.json();
-      } catch {
-        const text = await res.text().catch(() => "");
-        data = { ok: false, error: text || res.statusText || `HTTP ${res.status}` };
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setErr(data?.error || `HTTP ${res.status}`);
+        setMeta({ fallbacks: data?.details });
+        return;
       }
-
-      if (data.ok) {
-        setOut(`(${data.provider}) ${data.text}`);
-      } else {
-        setOut(data.error || `Error ${res.status}`);
-      }
+      setAnswer(data.text || "");
+      setMeta({ provider: data.provider, fallbacks: data.fallbackErrors });
     } catch (e: any) {
-      setOut(e?.message || String(e));
+      setErr(e?.message || "Network error");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <label className="text-sm">Provider</label>
-        <select
-          className="border rounded px-3 py-2"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value)}
-        >
-          {PROVIDERS.map(p => (
-            <option key={p.value} value={p.value}>{p.label}</option>
-          ))}
-        </select>
-      </div>
+    <div className="max-w-3xl mx-auto space-y-4">
+      <label className="block text-sm font-medium">Provider</label>
+      <select
+        value={provider}
+        onChange={(e) => setProvider(e.target.value as Provider)}
+        className="border rounded px-3 py-2"
+      >
+        <option value="openai">OpenAI</option>
+        <option value="gemini">Gemini</option>
+        <option value="grok">Grok (xAI)</option>
+      </select>
 
       <textarea
-        className="w-full h-40 border rounded p-3"
+        className="w-full border rounded p-3 h-40"
+        placeholder="Ask anything about markets, portfolios, macro…"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="Ask anything (markets, WLFI, macro, portfolio)…"
       />
 
-      <button onClick={send} className="px-4 py-2 rounded bg-black text-white">
-        Send
+      <button
+        onClick={send}
+        disabled={loading || !prompt.trim()}
+        className="px-5 py-2 rounded bg-black text-white disabled:opacity-50"
+      >
+        {loading ? "Thinking…" : "Send"}
       </button>
 
-      {out ? <pre className="whitespace-pre-wrap border rounded p-3">{out}</pre> : null}
+      {err && (
+        <pre className="whitespace-pre-wrap text-red-600 border rounded p-3">
+          {meta?.fallbacks
+            ? `(Tried other providers.)\n\n${err}`
+            : err}
+        </pre>
+      )}
+
+      {!!answer && (
+        <div className="space-y-2">
+          <div className="text-sm text-neutral-500">
+            Answered by <b>{meta?.provider ?? provider}</b>
+            {meta?.fallbacks && Object.keys(meta.fallbacks).length > 0 ? (
+              <> &nbsp;<i>(fallbacks used)</i></>
+            ) : null}
+          </div>
+          <pre className="whitespace-pre-wrap border rounded p-3">{answer}</pre>
+        </div>
+      )}
     </div>
   );
 }

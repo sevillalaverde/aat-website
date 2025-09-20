@@ -1,19 +1,33 @@
-'use client';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import Link from 'next/link';
+"use client";
+
+import Link from "next/link";
 
 export default function Header() {
   return (
-    <header className="sticky top-0 z-50 backdrop-blur bg-white/60 border-b">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="font-semibold text-xl tracking-tight">
-          🇺🇸 American AI <span className="text-neutral-500">($AAT)</span>
+    <header className="border-b">
+      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+        <Link href="/" className="font-semibold">
+          $AAT — American AI
         </Link>
         <nav className="flex items-center gap-4 text-sm">
-          <Link href="/lab">AI Lab</Link>
-          <Link href="/roadmap">Roadmap</Link>
-          <Link href="/docs">Docs</Link>
-          <ConnectButton />
+          <Link href="/lab" className="hover:underline">AI Lab</Link>
+          <Link href="/roadmap" className="hover:underline">Roadmap</Link>
+          <a
+            className="hover:underline"
+            href="https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x993af915901cc6c2b8ee38260621dc889dcb3c54"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Buy
+          </a>
+          <a
+            className="hover:underline"
+            href="https://etherscan.io/token/0x993aF915901CC6c2b8Ee38260621dc889DCb3C54"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Etherscan
+          </a>
         </nav>
       </div>
     </header>
