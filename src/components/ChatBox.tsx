@@ -1,73 +1,99 @@
+// src/components/ChatBox.tsx
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 
 type Provider = "openai" | "gemini" | "xai";
 
 export default function ChatBox() {
   const [provider, setProvider] = useState<Provider>("openai");
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [output, setOutput] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function send() {
-    if (!input.trim()) return;
-    setBusy(true); setOutput("");
+  async function ask(p: Provider) {
+    const res = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: p, prompt }),
+    });
+    return res;
+  }
+
+  async function onSend() {
+    if (!prompt.trim()) return;
+    setLoading(true);
+    setAnswer("");
+
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider,
-          messages: [{ role: "user", content: input }]
-        })
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Request failed");
-      setOutput(json.text);
+      // Primary call
+      let res = await ask(provider);
+
+      // Auto-fallbacks:
+      // - If OpenAI rate-limits or errors, try Gemini
+      // - If xAI rate-limits or errors, try Gemini
+      if (!res.ok && (provider === "openai" || provider === "xai")) {
+        const tag =
+          provider === "openai"
+            ? "(OpenAI quota/rate limit or error. Answered with Gemini.)\n\n"
+            : "(Grok/xAI error. Answered with Gemini.)\n\n";
+        const fallback = await ask("gemini");
+        if (fallback.ok) {
+          const data = await fallback.json();
+          setAnswer(tag + (data.text || ""));
+          return;
+        } else {
+          const err = await fallback.json().catch(() => ({}));
+          setAnswer(tag + (err.error || "Unknown error from Gemini"));
+          return;
+        }
+      }
+
+      // Normal path
+      const data = await res.json();
+      if (res.ok) {
+        setAnswer(String(data.text || "").trim());
+      } else {
+        setAnswer(data.error || "Unknown error");
+      }
     } catch (e: any) {
-      setOutput(`Error: ${e.message}`);
+      setAnswer(e?.message || "Unexpected error");
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-6 space-y-4">
-      <h2 className="text-2xl font-semibold">Ask the AAT AI</h2>
-      <div className="flex gap-3 items-center">
-        <label className="text-sm">Provider</label>
-        <select
-          className="border rounded px-2 py-1"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value as Provider)}
-        >
-          <option value="openai">OpenAI</option>
-          <option value="gemini">Gemini</option>
-          <option value="xai">xAI (Grok)</option>
-        </select>
-      </div>
+    <div className="max-w-3xl mx-auto w-full">
+      <label className="block text-sm mb-2">Provider</label>
+      <select
+        className="border rounded px-3 py-2"
+        value={provider}
+        onChange={(e) => setProvider(e.target.value as Provider)}
+      >
+        <option value="openai">OpenAI</option>
+        <option value="gemini">Gemini</option>
+        <option value="xai">Grok (xAI)</option>
+      </select>
 
       <textarea
-        className="w-full border rounded p-3 min-h-[120px]"
-        placeholder="Ask anything about markets, tokens, WLFI, etc."
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
+        className="w-full border rounded mt-4 p-3 h-40"
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder="Ask anything about markets, tokens, or AAT tools…"
       />
 
       <button
-        className="rounded px-4 py-2 bg-black text-white disabled:opacity-50"
-        onClick={send}
-        disabled={busy}
+        onClick={onSend}
+        disabled={loading}
+        className="mt-3 px-5 py-2 rounded bg-black text-white disabled:opacity-50"
       >
-        {busy ? "Thinking…" : "Send"}
+        {loading ? "Thinking…" : "Send"}
       </button>
 
-      {output && (
-        <div className="border rounded p-3 whitespace-pre-wrap">
-          {output}
-        </div>
-      )}
+      <pre className="mt-4 whitespace-pre-wrap text-sm p-3 border rounded">
+        {answer}
+      </pre>
     </div>
   );
 }
