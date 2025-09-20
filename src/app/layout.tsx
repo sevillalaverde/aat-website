@@ -1,19 +1,18 @@
-import type { Metadata } from "next";
-import "./globals.css"; // <-- THIS LINE APPLIES ALL STYLING
+import type { Metadata } from 'next';
+import './globals.css';
+import Web3Providers from '@/lib/wagmi';
 
 export const metadata: Metadata = {
-  title: "The American AI Token",
-  description: "The American AI Aggregator for Investors.",
+  title: 'American AI ($AAT)',
+  description: 'Multi-chain AI token with Grok, Gemini & ChatGPT utilities.',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Web3Providers>{children}</Web3Providers>
+      </body>
     </html>
   );
 }
