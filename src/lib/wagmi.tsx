@@ -1,27 +1,32 @@
 'use client';
 
-import { WagmiProvider, createConfig, http } from 'wagmi';
+import { WagmiProvider, http } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
-import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { getDefaultConfig, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import '@rainbow-me/rainbowkit/styles.css';
 
-const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
-const config = createConfig(
-  getDefaultConfig({
-    appName: 'AAT',
-    projectId: wcProjectId,
-    chains: [mainnet],
-    transports: { [mainnet.id]: http(process.env.NEXT_PUBLIC_MAINNET_RPC_URL) }
-  })
-);
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo';
+
+const config = getDefaultConfig({
+  appName: 'American AI ($AAT)',
+  projectId,
+  chains: [mainnet],
+  transports: {
+    [mainnet.id]: http(process.env.NEXT_PUBLIC_MAINNET_RPC_URL),
+  },
+  ssr: true,
+});
+
+const queryClient = new QueryClient();
 
 export default function Web3Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>{children}</RainbowKitProvider>
+        <RainbowKitProvider modalSize="compact" theme={darkTheme()}>
+          {children}
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

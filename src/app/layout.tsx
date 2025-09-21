@@ -12,10 +12,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <Web3Providers>
-          {children}
-          <SupportChat />
-        </Web3Providers>
+        <Web3Providers>{children}</Web3Providers>
+        <SupportChat />
       </body>
     </html>
   );
