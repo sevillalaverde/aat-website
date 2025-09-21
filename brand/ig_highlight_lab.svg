@@ -1,0 +1,6 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1080" height="1080" fill="#0B0B0B"/>
+  <circle cx="540" cy="540" r="420" fill="#111827" stroke="#60A5FA" stroke-width="18"/>
+  <text x="50%" y="54%" text-anchor="middle" font-family="Inter, system-ui" font-size="180" fill="#60A5FA">AAT</text>
+  <text x="50%" y="68%" text-anchor="middle" font-family="Inter, system-ui" font-size="64" fill="#BFDBFE">Lab</text>
+</svg>
