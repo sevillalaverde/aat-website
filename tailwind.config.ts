@@ -1,8 +1,12 @@
-# AAT Website
+// tailwind.config.ts
+import type { Config } from "tailwindcss";
 
-Next.js 14 + AI Aggregator (Grok xAI, Gemini, OpenAI)
-
-## Dev
-```bash
-npm install
-npm run dev
+export default {
+  content: [
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: { extend: {} },
+  plugins: [],
+} satisfies Config;

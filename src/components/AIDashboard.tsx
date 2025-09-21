@@ -1,25 +1,46 @@
 'use client';
-import { useState } from "react";
+
+import { useState } from 'react';
 
 export default function AIDashboard() {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [out, setOut] = useState<string>("");
+  const [out, setOut] = useState<string>('');
 
   async function run() {
     setLoading(true);
-    setOut("");
+    setOut('');
     try {
-      const res = await fetch("/api/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }), // default order: grok -> gemini -> openai
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // backend will call Grok → Gemini → OpenAI in parallel and aggregate
+        body: JSON.stringify({ query }),
       });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "API error");
-      setOut(data.final || JSON.stringify(data, null, 2));
+
+      // Read raw text first so we don't explode on HTML (404 pages, etc.)
+      const raw = await res.text();
+
+      let data: any = null;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        // HTML or some other non-JSON response
+        throw new Error(
+          `Bad response from /api/query (HTTP ${res.status}). ` +
+            `Endpoint missing or returned non-JSON.`
+        );
+      }
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+
+      // Prefer 'text', fall back to 'final' or stringify whole payload
+      const text = data.text || data.final || JSON.stringify(data, null, 2);
+      setOut(text);
     } catch (e: any) {
-      setOut("Error: " + (e?.message || String(e)));
+      setOut('Error: ' + (e?.message || String(e)));
     } finally {
       setLoading(false);
     }
@@ -38,8 +59,9 @@ export default function AIDashboard() {
         disabled={loading || !query.trim()}
         className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
       >
-        {loading ? "Thinking…" : "Query AIs"}
+        {loading ? 'Thinking…' : 'Query AIs'}
       </button>
+
       <pre className="whitespace-pre-wrap text-sm bg-neutral-50 border rounded p-3">
         {out}
       </pre>
