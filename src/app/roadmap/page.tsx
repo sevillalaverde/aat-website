@@ -134,7 +134,7 @@ const phases: Phase[] = [
       { label: "Payment verification: /api/memberships/verify + client form", done: true, href: "/memberships#verify" },
       { label: "Token registration: /api/memberships/register + client form", done: true, href: "/memberships" },
       { label: "Public tokens list at /tokens (dynamic JSON store)", done: true, href: "/tokens" },
-      { label: "Admin panel at /admin/tokens (key-protected CRUD)", done: true, href: "/admin/tokens" },
+     
       { label: "Email notifications (Resend) for verify/register (prod keys pending)", progress: true },
       { label: "SEO pass v1 for Memberships/Tokens pages (canonical + internal links)", progress: true },
     ],
