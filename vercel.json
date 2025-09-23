@@ -1,8 +1,6 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/daily-market",
-      "schedule": "0 12 * * *"
-    }
+    { "path": "/api/cron/daily-market", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/social-daily/super-secret-123", "schedule": "0 13 * * *" }
   ]
 }
