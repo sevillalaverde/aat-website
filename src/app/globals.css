@@ -1,23 +1,10 @@
-/* src/app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens / defaults */
-:root {
-  color-scheme: light;
-}
+/* Smooth fonts + layout basics */
+html, body { height: 100%; }
+body { @apply bg-white text-neutral-900 antialiased; }
 
-html, body {
-  height: 100%;
-}
-
-body {
-  @apply antialiased bg-white text-neutral-900;
-}
-
-/* Make modals/drawers above RainbowKit/AppKit */
-#modal-root, .modal-root {
-  position: relative;
-  z-index: 60;
-}
+/* Containers */
+.container { @apply max-w-6xl mx-auto px-4; }

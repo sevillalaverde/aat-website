@@ -76,7 +76,7 @@ const phases: Phase[] = [
     items: [
       { label: "Next.js site scaffold (Home, Lab, Roadmap)", done: true, href: "/" },
       {
-        label: "Wallet connect + Add-Token button (Wagmi/RainbowKit)",
+        label: "Wallet connect + Add-Token button (Wagmi/Web3Modal)",
         done: true,
       },
       {
@@ -125,17 +125,33 @@ const phases: Phase[] = [
       { label: "Vercel Cron enabled & env set for auto-posting to TG/Discord", progress: true },
     ],
   },
+
+  // NEW PHASE ADDED & MARKED
   {
-    title: "Phase 4 — Presale / Auction Plan",
+    title: "Phase 4 — Memberships & Listings",
     items: [
-      { label: "Finalize sale mechanism (Fair launch / Dutch / Bonding Curve)", },
-      { label: "Allowlist & KYC policy (if required by venue)", },
-      { label: "Treasury / vesting smart-contract setup", },
-      { label: "Campaign creative & landing with live metrics", },
+      { label: "Memberships page with tiers (ETH & SOL payment addresses)", done: true, href: "/memberships" },
+      { label: "Payment verification: /api/memberships/verify + client form", done: true, href: "/memberships#verify" },
+      { label: "Token registration: /api/memberships/register + client form", done: true, href: "/memberships" },
+      { label: "Public tokens list at /tokens (dynamic JSON store)", done: true, href: "/tokens" },
+      { label: "Admin panel at /admin/tokens (key-protected CRUD)", done: true, href: "/admin/tokens" },
+      { label: "Email notifications (Resend) for verify/register (prod keys pending)", progress: true },
+      { label: "SEO pass v1 for Memberships/Tokens pages (canonical + internal links)", progress: true },
+    ],
+  },
+
+  // Renumbered subsequent phases
+  {
+    title: "Phase 5 — Presale / Auction Plan",
+    items: [
+      { label: "Finalize sale mechanism (Fair launch / Dutch / Bonding Curve)" },
+      { label: "Allowlist & KYC policy (if required by venue)" },
+      { label: "Treasury / vesting smart-contract setup" },
+      { label: "Campaign creative & landing with live metrics" },
     ],
   },
   {
-    title: "Phase 5 — Liquidity & Listings",
+    title: "Phase 6 — Liquidity & Listings",
     items: [
       { label: "Initial liquidity on Uniswap (ETH / USD stable pair)" },
       { label: "Tokenlists & metadata distribution (TokenLists.org, TrustWallet, etc.)" },
@@ -144,48 +160,48 @@ const phases: Phase[] = [
     ],
   },
   {
-    title: "Phase 6 — Multichain",
+    title: "Phase 7 — Multichain",
     items: [
-      { label: "Bridge & wrapped deployments (Arbitrum/OP/Base/Polygon)", },
-      { label: "Solana representation (via Wormhole / canonical bridge)", },
-      { label: "BNB Chain pair", },
-      { label: "USD1 / USDT / USDC strategic LP pairs", },
+      { label: "Bridge & wrapped deployments (Arbitrum/OP/Base/Polygon)" },
+      { label: "Solana representation (via Wormhole / canonical bridge)" },
+      { label: "BNB Chain pair" },
+      { label: "USD1 / USDT / USDC strategic LP pairs" },
     ],
   },
   {
-    title: "Phase 7 — Advanced AI Features",
+    title: "Phase 8 — Advanced AI Features",
     items: [
-      { label: "Alpha Cortex — token-gated strategy vault (backtests, deployable)", },
-      { label: "AI-Powered Smart-Contract Auditing w/ Trust Score", },
-      { label: "On-Chain AI Agent Builder (no-code triggers & actions)", },
-      { label: `“DeFi Llama Killer” AI analytics (forward yield & DAO sentiment)`, },
-      { label: `“Etherscan Explain” — humanized TX decode`, },
-      { label: "Real-Time Macro Event Impact dashboard", },
-      { label: "Tokenomics Simulator (supply/vesting/inflation scenarios)", },
-      { label: "WLFI/USD1 Yield Optimizer module", },
-      { label: "Whitelist & Airdrop AI Screener (paid in $AAT)", },
-      { label: "Cross-Chain Arbitrage Agent (advisory, opt-in execution)", },
-      { label: "Autonomous Sentiment Agent (X/Reddit scanners)", },
-      { label: "Predictive Hedging Agent (scenario testing)", },
-      { label: "Portfolio Guardian Agent (volatility & risk alerts)", },
-      { label: "News Aggregation Agent (bias-checked summaries)", },
-      { label: "Enterprise Query Agent (privacy-preserving analytics)", },
+      { label: "Alpha Cortex — token-gated strategy vault (backtests, deployable)" },
+      { label: "AI-Powered Smart-Contract Auditing w/ Trust Score" },
+      { label: "On-Chain AI Agent Builder (no-code triggers & actions)" },
+      { label: "“DeFi Llama Killer” AI analytics (forward yield & DAO sentiment)" },
+      { label: "“Etherscan Explain” — humanized TX decode" },
+      { label: "Real-Time Macro Event Impact dashboard" },
+      { label: "Tokenomics Simulator (supply/vesting/inflation scenarios)" },
+      { label: "WLFI/USD1 Yield Optimizer module" },
+      { label: "Whitelist & Airdrop AI Screener (paid in $AAT)" },
+      { label: "Cross-Chain Arbitrage Agent (advisory, opt-in execution)" },
+      { label: "Autonomous Sentiment Agent (X/Reddit scanners)" },
+      { label: "Predictive Hedging Agent (scenario testing)" },
+      { label: "Portfolio Guardian Agent (volatility & risk alerts)" },
+      { label: "News Aggregation Agent (bias-checked summaries)" },
+      { label: "Enterprise Query Agent (privacy-preserving analytics)" },
     ],
   },
   {
-    title: "Phase 8 — Mobile & Extensions",
+    title: "Phase 9 — Mobile & Extensions",
     items: [
       { label: "Chrome Extension (AAT mini-panel + ‘Explain’ anywhere)" },
       { label: "iOS App (voice chat, alerts, portfolio hooks)" },
       { label: "Android App (voice chat, alerts, portfolio hooks)" },
-      { label: "Push notifications & deep links", },
+      { label: "Push notifications & deep links" },
     ],
   },
   {
-    title: "Phase 9 — Ecosystem & Ops",
+    title: "Phase 10 — Ecosystem & Ops",
     items: [
       { label: "Docs, whitepaper v1, API marketplace", progress: true },
-      { label: "Bug bounty & disclosure policy", },
+      { label: "Bug bounty & disclosure policy" },
       { label: "Security review pipeline (static + AI pre-audit + human)" },
       { label: "DAO design (grants, growth, listings, LP incentives)" },
     ],

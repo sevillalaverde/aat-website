@@ -1,63 +1,55 @@
 // src/app/api/query/route.ts
 import { NextResponse } from "next/server";
-import { kbContextFor } from "@/lib/kb";
-import { getMetricsForAsset } from "@/lib/finance";
+import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-type Body = {
-  query?: string;
-  asset?: string; // "aat" | "wlfi" | "btc" | "eth" | etc
-};
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const SYS_PROMPT = `
-You are **AAT Concierge**, a crisp, friendly finance assistant for the American AI Token project.
-
-Goals:
-- Answer **directly** with high signal, like a Bloomberg terminal note.
-- Do **not** send users to external sites or paste long URLs.
-- Use the provided "Context" and "Live Metrics" faithfully.
-- Keep tone: helpful, calm, confident; offer next steps when useful.
-- If something is unknown or uncertain, say so plainly and suggest what we will do to find out.
-- Never invent numbers. If no metric, show "N/A".
-
-Format:
-1) TL;DR — one short paragraph
-2) Key Numbers — short bullets (only if available)
-3) What it means — 2-5 bullets
-4) How to act on AAT — concrete next steps inside the AAT app
-
-Keep answers under ~200 words unless the user asks for deep detail.
-`;
-
-function buildUserPrompt(q: string, asset: string | undefined, kb: string, metrics: any) {
-  const lines: string[] = [];
-  lines.push("## Context");
-  lines.push(kb || "N/A");
-  lines.push("## Live Metrics");
-  lines.push(
-    metrics
-      ? JSON.stringify(metrics, null, 2)
-      : "N/A"
-  );
-  lines.push("## User Question");
-  lines.push(q);
-  lines.push("## Instructions");
-  lines.push("Follow the system prompt exactly. No links. Be concise, high-signal.");
-  if (asset) lines.push(`Primary asset focus: ${asset.toUpperCase()}`);
-  return lines.join("\n\n");
-}
-
-async function readJSON(res: Response) {
-  const text = await res.text();
+// ---------- Helpers ----------
+function asText(x: unknown): string {
+  if (typeof x === "string") return x;
+  if (!x) return "";
   try {
-    return JSON.parse(text);
+    return JSON.stringify(x);
   } catch {
-    throw new Error(`Non-JSON from provider: ${text.slice(0, 200)}`);
+    return String(x);
   }
 }
 
-async function callGrok(prompt: string): Promise<string> {
+async function parseJsonOrThrow(res: Response): Promise<any> {
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    const snippet = await res.text().catch(() => "");
+    throw new Error(
+      `Non-JSON response (${res.status}). First bytes: ${snippet.slice(0, 100)}`
+    );
+  }
+  return res.json();
+}
+
+// ---------- Providers in preferred order: GEMINI → GROK → OPENAI ----------
+async function askGemini(prompt: string) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY missing");
+  const modelName = process.env.GEMINI_MODEL || "gemini-1.5-pro";
+  const genAI = new GoogleGenerativeAI(key);
+  const model = genAI.getGenerativeModel({ model: modelName });
+
+  const resp = await model.generateContent(prompt);
+  // SDK responses differ slightly by version:
+  const text =
+    (resp as any)?.response?.text?.() ??
+    (resp as any)?.response?.candidates?.[0]?.content?.parts?.[0]?.text ??
+    "";
+  if (!text) throw new Error("Empty response from Gemini");
+  return text;
+}
+
+async function askGrok(prompt: string) {
   const key = process.env.XAI_API_KEY;
-  if (!key) throw new Error("Missing XAI_API_KEY");
+  if (!key) throw new Error("XAI_API_KEY missing");
+  const model = process.env.XAI_MODEL || "grok-2";
   const res = await fetch("https://api.x.ai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -65,120 +57,85 @@ async function callGrok(prompt: string): Promise<string> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "grok-2-latest",
-      messages: [
-        { role: "system", content: SYS_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 500,
+      model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.6,
     }),
   });
-  const json = await readJSON(res);
-  const msg = json?.choices?.[0]?.message?.content;
-  if (!msg) throw new Error("Empty Grok response");
-  return String(msg);
-}
-
-async function callGemini(prompt: string): Promise<string> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("Missing GEMINI_API_KEY");
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${key}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: `${SYS_PROMPT}\n\n${prompt}` }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 500 },
-      }),
-    }
-  );
-  const json = await readJSON(res);
-  const text =
-    json?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("\n") ||
-    "";
-  if (!text.trim()) throw new Error("Empty Gemini response");
+  const data = await parseJsonOrThrow(res);
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error("Empty response from Grok");
   return text;
 }
 
-async function callOpenAI(prompt: string): Promise<string> {
+async function askOpenAI(prompt: string) {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("Missing OPENAI_API_KEY");
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: SYS_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 500,
-    }),
+  if (!key) throw new Error("OPENAI_API_KEY missing");
+  const client = new OpenAI({ apiKey: key });
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+  const r = await client.chat.completions.create({
+    model,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.6,
   });
-  const json = await readJSON(res);
-  const txt = json?.choices?.[0]?.message?.content;
-  if (!txt) throw new Error("Empty OpenAI response");
-  return String(txt);
+  const text = r?.choices?.[0]?.message?.content;
+  if (!text) throw new Error("Empty response from OpenAI");
+  return text;
 }
 
+// ---------- POST handler ----------
 export async function POST(req: Request) {
   try {
-    const { query, asset }: Body = await req.json().catch(() => ({}));
-    const q = (query || "").toString().trim();
-    const a = (asset || "").toString().trim().toLowerCase();
+    const body = (await req.json().catch(() => ({}))) as {
+      query?: string;
+      provider?: "gemini" | "grok" | "openai";
+    };
 
-    if (!q) {
+    const query = (body.query || "").trim();
+    if (!query) {
       return NextResponse.json(
-        { ok: false, error: "Missing `query`." },
+        { ok: false, error: "Missing 'query'." },
         { status: 400 }
       );
     }
 
-    // Build grounding
-    const kb = kbContextFor([a || "aat", "wlfi"].filter(Boolean));
-    const metrics = a ? await getMetricsForAsset(a) : await getMetricsForAsset("aat");
-    const userPrompt = buildUserPrompt(q, a || undefined, kb, metrics);
+    // If the caller forces a provider, honor it. Otherwise use our order.
+    const order: Array<"gemini" | "grok" | "openai"> = body.provider
+      ? [body.provider]
+      : ["gemini", "grok", "openai"];
 
-    // Provider cascade: Grok -> Gemini -> OpenAI
-    const errors: string[] = [];
-    const tryOrder: Array<["grok" | "gemini" | "openai", (p: string) => Promise<string>]> = [
-      ["grok", callGrok],
-      ["gemini", callGemini],
-      ["openai", callOpenAI],
-    ];
-
-    for (const [name, fn] of tryOrder) {
+    const errors: Record<string, string> = {};
+    for (const p of order) {
       try {
-        const text = await fn(userPrompt);
-        // Lightweight sanity: must include TL;DR
-        if (!/TL;DR/i.test(text)) {
-          throw new Error(`${name} returned low-structure text`);
+        if (p === "gemini") {
+          const text = await askGemini(query);
+          return NextResponse.json({ ok: true, provider: p, text, errors });
         }
-        return NextResponse.json({
-          ok: true,
-          provider: name,
-          final: text,
-          usedAsset: a || "aat",
-          metrics: metrics || null,
-        });
+        if (p === "grok") {
+          const text = await askGrok(query);
+          return NextResponse.json({ ok: true, provider: p, text, errors });
+        }
+        if (p === "openai") {
+          const text = await askOpenAI(query);
+          return NextResponse.json({ ok: true, provider: p, text, errors });
+        }
       } catch (e: any) {
-        errors.push(`${name}: ${e?.message || String(e)}`);
+        errors[p] = asText(e?.message || e);
       }
     }
 
     return NextResponse.json(
-      { ok: false, error: "All providers failed", details: errors },
+      {
+        ok: false,
+        error: "All providers failed.",
+        errors,
+      },
       { status: 502 }
     );
   } catch (e: any) {
     return NextResponse.json(
-      { ok: false, error: e?.message || "Server error" },
+      { ok: false, error: asText(e?.message || e) },
       { status: 500 }
     );
   }

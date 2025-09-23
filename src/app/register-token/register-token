@@ -1,0 +1,79 @@
+// src/app/register-token/page.tsx
+"use client";
+import { useEffect, useState } from "react";
+import { useAccount, useReadContract, useConnect } from "wagmi";
+import { injected } from "wagmi/connectors";
+import { zeroAddress } from "viem";
+
+const AAT = (process.env.NEXT_PUBLIC_TOKEN_ADDRESS || "").toLowerCase();
+const MIN_AAT = Number(process.env.NEXT_PUBLIC_MIN_AAT || "1"); // min units (NOT wei)
+
+const ERC20_ABI = [
+  { type:"function", name:"decimals", stateMutability:"view", inputs:[], outputs:[{type:"uint8"}] },
+  { type:"function", name:"balanceOf", stateMutability:"view", inputs:[{name:"a",type:"address"}], outputs:[{type:"uint256"}] },
+];
+
+export default function RegisterToken() {
+  const { address, isConnected } = useAccount();
+  const { connect } = useConnect();
+  const [hasAccess, setHasAccess] = useState(false);
+
+  const { data: decimals } = useReadContract({
+    abi: ERC20_ABI, address: AAT && AAT !== "0x" ? (AAT as `0x${string}`) : zeroAddress,
+    functionName: "decimals",
+    query: { enabled: isConnected && !!AAT },
+  });
+
+  const { data: rawBal } = useReadContract({
+    abi: ERC20_ABI, address: AAT && AAT !== "0x" ? (AAT as `0x${string}`) : zeroAddress,
+    functionName: "balanceOf",
+    args: [address!],
+    query: { enabled: isConnected && !!AAT && !!address },
+  });
+
+  useEffect(() => {
+    if (!decimals || !rawBal) return;
+    const d = Number(decimals as any);
+    const bal = Number(BigInt(rawBal as any)) / 10 ** d;
+    setHasAccess(bal >= MIN_AAT);
+  }, [decimals, rawBal]);
+
+  const [form, setForm] = useState({ name: "", symbol: "", address: "", chain: "ethereum", website: "" });
+
+  function submit() {
+    if (!hasAccess) return alert("You need more AAT to register a token.");
+    // TODO: POST to your DB/API; for now, just log:
+    console.log("New token submission:", form);
+    alert("Submitted! (Hook this to DB later.)");
+  }
+
+  return (
+    <main className="max-w-xl mx-auto px-4 py-10 space-y-6">
+      <h1 className="text-3xl font-bold">Register a Token</h1>
+
+      {!isConnected && (
+        <button onClick={() => connect({ connector: injected() })} className="px-4 py-2 rounded-xl bg-black text-white">
+          Connect Wallet
+        </button>
+      )}
+
+      {isConnected && (
+        <>
+          <div className="text-sm">
+            Access: {hasAccess ? <span className="text-green-600 font-medium">granted</span> : <span className="text-red-600">need ≥ {MIN_AAT} AAT</span>}
+          </div>
+
+          <div className="space-y-3">
+            <input className="w-full border rounded-xl px-3 py-2" placeholder="Name"   value={form.name}   onChange={e=>setForm(f=>({...f, name:e.target.value}))}/>
+            <input className="w-full border rounded-xl px-3 py-2" placeholder="Symbol" value={form.symbol} onChange={e=>setForm(f=>({...f, symbol:e.target.value}))}/>
+            <input className="w-full border rounded-xl px-3 py-2" placeholder="Contract address" value={form.address} onChange={e=>setForm(f=>({...f, address:e.target.value}))}/>
+            <input className="w-full border rounded-xl px-3 py-2" placeholder="Website (optional)" value={form.website} onChange={e=>setForm(f=>({...f, website:e.target.value}))}/>
+            <button onClick={submit} disabled={!hasAccess} className="px-4 py-2 rounded-xl bg-black text-white disabled:opacity-50">
+              Submit
+            </button>
+          </div>
+        </>
+      )}
+    </main>
+  );
+}
