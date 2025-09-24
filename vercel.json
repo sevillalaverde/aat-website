@@ -1,10 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/cron/daily-market", "schedule": "0 12 * * *" },
-
-    { "path": "/api/cron/social-daily/super-secret-123/morning", "schedule": "0 13 * * *" },
-    { "path": "/api/cron/social-daily/super-secret-123/midday",  "schedule": "0 17 * * *" },
-    { "path": "/api/cron/social-daily/super-secret-123/evening", "schedule": "0 23 * * *" }
+    { "path": "/api/cron/social-daily/super-secret-123/morning", "schedule": "0 13 * * *" }
   ]
 }
