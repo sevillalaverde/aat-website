@@ -4,19 +4,15 @@ import { composeSocial } from "@/lib/social";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const topic = String(body?.topic || "daily-brief");
-    const tone  = String(body?.tone  || "credible");
-    const links = Array.isArray(body?.links)
-      ? body.links
-      : String(body?.links || "").split(/\s+/).filter(Boolean);
+    const body = (await req.json().catch(() => ({}))) || {};
+    const topic = body?.topic as string | undefined;
+    const tone = body?.tone as string | undefined;
+    const links = (body?.links as string[] | undefined) || undefined;
+    const slot = (body?.slot as "morning" | "midday" | "evening" | "preview") || "preview";
 
-    const out = await composeSocial({
-      topic, tone, links, seed: Date.now() / 86400000 | 0
-    });
-
-    return NextResponse.json({ ok: true, result: { preview: out } });
+    const result = composeSocial({ slot, topic, tone, links });
+    return NextResponse.json({ ok: true, result: { preview: result.preview } });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "error" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e?.message || "preview error" }, { status: 500 });
   }
 }
