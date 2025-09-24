@@ -9,7 +9,7 @@ export const metadata = {
 
 type Item = {
   label: string;
-  done?: boolean;   // ✅ shipped (green)
+  done?: boolean;     // ✅ shipped (green)
   progress?: boolean; // 🟠 in progress
   href?: string;
 };
@@ -59,15 +59,12 @@ const phases: Phase[] = [
         done: true,
         href: "https://etherscan.io/token/0x993aF915901CC6c2b8Ee38260621dc889DCb3C54",
       },
-      {
-        label: "Set token logo / metadata on Etherscan & wallets",
-        done: true,
-      },
+      { label: "Set token logo / metadata on Etherscan & wallets", done: true },
       {
         label:
           "Source control & repos created (contracts + website), GitHub workflows",
         done: true,
-        href: "https://github.com/sevillalaverde",
+        href: "https://github.com/sevillalaverde/aat-website",
       },
     ],
   },
@@ -75,42 +72,17 @@ const phases: Phase[] = [
     title: "Phase 1 — Web App MVP",
     items: [
       { label: "Next.js site scaffold (Home, Lab, Roadmap)", done: true, href: "/" },
-      {
-        label: "Wallet connect + Add-Token button (Wagmi/Web3Modal)",
-        done: true,
-      },
-      {
-        label:
-          "Support Chat (concierge persona) with voice input toggle (mobile-friendly)",
-        done: true,
-        href: "/",
-      },
-      {
-        label:
-          "Basic SEO: titles, meta, social cards; robots/sitemap (foundation)",
-        done: true,
-      },
+      { label: "Wallet connect + Add-Token button (Wagmi/RainbowKit)", done: true },
+      { label: "Support Chat (concierge persona) with voice input toggle (mobile-friendly)", done: true, href: "/" },
+      { label: "Basic SEO: titles, meta, social cards; robots/sitemap (foundation)", done: true },
     ],
   },
   {
     title: "Phase 2 — AI Core (Aggregator) MVP",
     items: [
-      {
-        label:
-          "Unified /api/chat & /api/query with provider order: Grok → Gemini → OpenAI",
-        done: true,
-      },
-      {
-        label:
-          "Graceful fallbacks, JSON-safe responses, timeouts & error handling",
-        done: true,
-      },
-      {
-        label:
-          "Lab page to test AAT intelligence & provider switching",
-        done: true,
-        href: "/lab",
-      },
+      { label: "Unified /api/chat & /api/query with provider order: Grok → Gemini → OpenAI", done: true },
+      { label: "Graceful fallbacks, JSON-safe responses, timeouts & error handling", done: true },
+      { label: "Lab page to test AAT intelligence & provider switching", done: true, href: "/lab" },
     ],
   },
   {
@@ -122,27 +94,32 @@ const phases: Phase[] = [
       { label: "Instagram profile live (@theaat.xyz)", done: true, href: "https://www.instagram.com/theaat.xyz" },
       { label: "Repo content folders for social posts (X/IG captions)", done: true },
       { label: "Daily “State of the Market” AI brief — code ready", done: true },
-      { label: "Vercel Cron enabled & env set for auto-posting to TG/Discord", progress: true },
+      { label: "Vercel Cron enabled & env set", progress: true },
     ],
   },
 
-  // NEW PHASE ADDED & MARKED
+  /* NEW: Social Automation Agent & Scheduling */
   {
-    title: "Phase 4 — Memberships & Listings",
+    title: "Phase 10 — Social Automation Agent (v1)",
     items: [
-      { label: "Memberships page with tiers (ETH & SOL payment addresses)", done: true, href: "/memberships" },
-      { label: "Payment verification: /api/memberships/verify + client form", done: true, href: "/memberships#verify" },
-      { label: "Token registration: /api/memberships/register + client form", done: true, href: "/memberships" },
-      { label: "Public tokens list at /tokens (dynamic JSON store)", done: true, href: "/tokens" },
-     
-      { label: "Email notifications (Resend) for verify/register (prod keys pending)", progress: true },
-      { label: "SEO pass v1 for Memberships/Tokens pages (canonical + internal links)", progress: true },
+      { label: "Autoposter endpoints: /api/cron/social-daily/[key]/[slot] (morning/midday/evening)", done: true },
+      { label: "X posting live (API keys configured, tweet IDs returned)", done: true },
+      { label: "Telegram posting live (bot admin in @american_aat, numeric chat id)", done: true },
+      { label: "Discord posting live (Webhook)", done: true },
+      { label: "Text generation (OpenAI→Gemini→template fallback) with channel-specific copy", done: true },
+      { label: "Safe toggles via env: SOCIAL_CHANNEL_X/TELEGRAM/DISCORD", done: true },
+      { label: "Vercel Cron schedules (UTC) for 3×/day cadence", progress: true },
+      { label: "Logging: return platform ids in JSON for audit", done: true },
+      { label: "Instagram publishing (Graph API) — paused", },
+      { label: "Content library + A/B tests for copy/CTA", },
+      { label: "Hashtag & timing optimizer", },
+      { label: "Weekly summary & growth dashboard", },
     ],
   },
 
-  // Renumbered subsequent phases
+  /* Keep original later phases */
   {
-    title: "Phase 5 — Presale / Auction Plan",
+    title: "Phase 4 — Presale / Auction Plan",
     items: [
       { label: "Finalize sale mechanism (Fair launch / Dutch / Bonding Curve)" },
       { label: "Allowlist & KYC policy (if required by venue)" },
@@ -151,7 +128,7 @@ const phases: Phase[] = [
     ],
   },
   {
-    title: "Phase 6 — Liquidity & Listings",
+    title: "Phase 5 — Liquidity & Listings",
     items: [
       { label: "Initial liquidity on Uniswap (ETH / USD stable pair)" },
       { label: "Tokenlists & metadata distribution (TokenLists.org, TrustWallet, etc.)" },
@@ -160,7 +137,7 @@ const phases: Phase[] = [
     ],
   },
   {
-    title: "Phase 7 — Multichain",
+    title: "Phase 6 — Multichain",
     items: [
       { label: "Bridge & wrapped deployments (Arbitrum/OP/Base/Polygon)" },
       { label: "Solana representation (via Wormhole / canonical bridge)" },
@@ -169,7 +146,7 @@ const phases: Phase[] = [
     ],
   },
   {
-    title: "Phase 8 — Advanced AI Features",
+    title: "Phase 7 — Advanced AI Features",
     items: [
       { label: "Alpha Cortex — token-gated strategy vault (backtests, deployable)" },
       { label: "AI-Powered Smart-Contract Auditing w/ Trust Score" },
@@ -189,7 +166,7 @@ const phases: Phase[] = [
     ],
   },
   {
-    title: "Phase 9 — Mobile & Extensions",
+    title: "Phase 8 — Mobile & Extensions",
     items: [
       { label: "Chrome Extension (AAT mini-panel + ‘Explain’ anywhere)" },
       { label: "iOS App (voice chat, alerts, portfolio hooks)" },
@@ -198,7 +175,7 @@ const phases: Phase[] = [
     ],
   },
   {
-    title: "Phase 10 — Ecosystem & Ops",
+    title: "Phase 9 — Ecosystem & Ops",
     items: [
       { label: "Docs, whitepaper v1, API marketplace", progress: true },
       { label: "Bug bounty & disclosure policy" },
@@ -227,9 +204,7 @@ function BadgeLegend() {
 function Row({ item }: { item: Item }) {
   const icon = item.done ? CHECK : item.progress ? PROG : TODO;
   const textCls = item.done ? "text-neutral-900" : item.progress ? "text-neutral-900" : "text-neutral-700";
-  const content = (
-    <span className={`leading-snug ${textCls}`}>{item.label}</span>
-  );
+  const content = <span className={`leading-snug ${textCls}`}>{item.label}</span>;
   return (
     <li className="flex items-start gap-2 py-2">
       {icon}
@@ -253,18 +228,14 @@ export default function RoadmapPage() {
     <main className="max-w-5xl mx-auto px-4 py-10">
       <h1 className="text-3xl md:text-4xl font-bold">American AI — Roadmap</h1>
       <p className="mt-3 text-neutral-600">
-        A living plan for shipping $AAT. We build in public: shipped items are marked{" "}
-        <strong>green</strong>, in-progress are <strong>amber</strong>, and planned items are{" "}
-        <strong>grey</strong>.
+        A living plan for shipping $AAT. We build in public: shipped items are marked <strong>green</strong>, in-progress are{" "}
+        <strong>amber</strong>, and planned items are <strong>grey</strong>.
       </p>
       <BadgeLegend />
 
       <div className="mt-8 grid md:grid-cols-2 gap-6">
         {phases.map((p, idx) => (
-          <section
-            key={idx}
-            className="rounded-2xl border bg-white/70 backdrop-blur p-5"
-          >
+          <section key={idx} className="rounded-2xl border bg-white/70 backdrop-blur p-5">
             <h2 className="text-xl font-semibold">{p.title}</h2>
             <ul className="mt-3">
               {p.items.map((it, i) => (
