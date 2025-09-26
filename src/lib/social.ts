@@ -79,7 +79,6 @@ const ctas = [
 ];
 
 const linkDefaults = (slot: ComposeInput["slot"]) => {
-  // allow env overrides per-slot; fall back to base
   const base = (env("SOCIAL_LINKS") || "").split(/\s+/).filter(Boolean);
   const per = (env(`SOCIAL_${slot.toUpperCase()}_LINKS`) || "")
     .split(/\s+/)
@@ -117,7 +116,6 @@ function smallTone(tone: string) {
 function clipX(msg: string) {
   const HARD = 280;
   if (msg.length <= HARD) return msg;
-  // try dropping hashtags if needed
   const parts = msg.split(" ");
   const keep = parts.filter((p) => !p.startsWith("#"));
   let s = keep.join(" ");
@@ -143,10 +141,8 @@ export function composeSocial(input: ComposeInput): ChannelBundle {
   const tags  = pick(baseSeed + 47, hashtagPools).join(" ");
 
   const link = pick(baseSeed + 71, links);
-
   const nf = "Not financial advice.";
 
-  // micro-templates rotate with seed
   const tA = `${intro} ${topic.replace("-", " ")}. ${cta}. ${link} ${nf}`;
   const tB = `${intro} ${topic.replace("-", " ")} — ${focus}. ${link} ${tags} ${nf}`;
   const tC = `AAT ${topic}: ${focus}. ${link} ${nf}`;
@@ -154,7 +150,6 @@ export function composeSocial(input: ComposeInput): ChannelBundle {
   const ordered = shuffle(baseSeed, [tA, tB, tC]);
   const x = clipX(ordered[0]);
 
-  // Telegram & Discord get a bit longer block style
   const tele = `${intro} ${topic.replace("-", " ")}.\n\n${link}\n\n${nf}`;
   const disc = `AAT ${topic}. Discuss with the community. ${link} ${nf}`;
 
@@ -175,9 +170,7 @@ export async function postToX(status: string) {
   }
 
   try {
-    const client = new TwitterApi({
-      appKey, appSecret, accessToken, accessSecret
-    });
+    const client = new TwitterApi({ appKey, appSecret, accessToken, accessSecret });
     const tweet = await client.v2.tweet(status);
     return { ok: true, id: tweet.data?.id };
   } catch (e: any) {
@@ -215,3 +208,17 @@ export async function postToDiscord(content: string) {
   });
   return r.ok ? { ok: true } : { ok: false, error: `Discord ${r.status}` };
 }
+
+/** ─────────────────────────────
+ *  Compatibility helpers (to satisfy old imports)
+ *  ──────────────────────────── */
+export function resolveSlot(s?: string): "morning" | "midday" | "evening" {
+  const v = String(s || "").toLowerCase();
+  if (v === "midday" || v === "evening" || v === "morning") return v;
+  return "morning";
+}
+export const channels = {
+  x: CHANNEL_X,
+  telegram: CHANNEL_TELEGRAM,
+  discord: CHANNEL_DISCORD,
+};
