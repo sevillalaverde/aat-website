@@ -1,52 +1,50 @@
-/* src/app/api/cron/social-daily/[key]/[slot]/route.ts */
+// src/app/api/cron/social-daily/[key]/[slot]/route.ts
 import { NextResponse } from "next/server";
 import {
   composeSocial,
+  resolveSlot,
   postToX,
   postToTelegram,
   postToDiscord,
   CHANNEL_X,
   CHANNEL_TELEGRAM,
   CHANNEL_DISCORD,
+  type Slot,
 } from "@/lib/social";
 
-export const dynamic = "force-dynamic";
+export async function GET(
+  req: Request,
+  { params }: { params: { key: string; slot: Slot } }
+) {
+  const url = new URL(req.url);
+  const secret = process.env.CRON_SECRET || "super-secret-123";
+  if (params.key !== secret) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
-type Params = { key: string; slot: "morning" | "midday" | "evening" };
+  const slot = (params.slot || "morning") as Slot;
+  const dry = url.searchParams.get("dry") === "1";
+  const v = parseInt(url.searchParams.get("v") || "2", 10) || 2;
+  const seed = url.searchParams.get("seed") ? parseInt(url.searchParams.get("seed")!, 10) : undefined;
 
-export async function GET(req: Request, ctx: { params: Params }) {
-  const { key, slot } = ctx.params;
-  const u = new URL(req.url);
-  const dry = u.searchParams.get("dry") === "1";
-  const variant = Number(u.searchParams.get("v") || "0") || 0;
+  const cfg = resolveSlot(slot);
+  const copy = composeSocial({
+    slot,
+    topic: cfg.topic,
+    tone: cfg.tone,
+    links: cfg.links,
+    variant: v,
+    seed,
+    xSuffix: process.env.SOCIAL_X_SUFFIX,
+  });
 
-  const goodKey = process.env.CRON_SECRET || "super-secret-123";
-  if (key !== goodKey) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-    }
-
-  // Compose varied copy (deterministic by date + slot + variant)
-  const bundle = composeSocial({ slot, variant });
-
-  const result: any = { slot, preview: bundle, channels: {} };
-
-  if (dry) {
-    return NextResponse.json({ ok: true, result, dry: true });
+  const result: Record<string, any> = { preview: copy };
+  if (!dry) {
+    if (CHANNEL_X) result.x = await postToX(copy.x);
+    if (CHANNEL_TELEGRAM) result.telegram = await postToTelegram(copy.telegram);
+    if (CHANNEL_DISCORD) result.discord = await postToDiscord(copy.discord);
   }
 
-  // Post to channels as enabled
-  if (CHANNEL_X) {
-    const r = await postToX(bundle.x);
-    result.channels.x = r;
-  }
-  if (CHANNEL_TELEGRAM) {
-    const r = await postToTelegram(bundle.telegram);
-    result.channels.telegram = r;
-  }
-  if (CHANNEL_DISCORD) {
-    const r = await postToDiscord(bundle.discord);
-    result.channels.discord = r;
-  }
-
-  return NextResponse.json({ ok: true, result, dry: false });
+  return NextResponse.json(
+    { ok: true, result: { slot, topic: cfg.topic, tone: cfg.tone, links: cfg.links, ...result, dry } },
+    { status: 200 },
+  );
 }
