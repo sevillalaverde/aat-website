@@ -2,49 +2,52 @@
 import { NextResponse } from "next/server";
 import {
   composeSocial,
-  resolveSlot,
   postToX,
   postToTelegram,
   postToDiscord,
-  CHANNEL_X,
-  CHANNEL_TELEGRAM,
-  CHANNEL_DISCORD,
-  type Slot,
+  resolveSlot,
+  channels,
+  Slot,
 } from "@/lib/social";
 
 export async function GET(
   req: Request,
-  { params }: { params: { key: string; slot: Slot } }
+  ctx: { params: { key: string; slot: Slot } }
 ) {
   const url = new URL(req.url);
-  const secret = process.env.CRON_SECRET || "super-secret-123";
-  if (params.key !== secret) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-
-  const slot = (params.slot || "morning") as Slot;
   const dry = url.searchParams.get("dry") === "1";
-  const v = parseInt(url.searchParams.get("v") || "2", 10) || 2;
-  const seed = url.searchParams.get("seed") ? parseInt(url.searchParams.get("seed")!, 10) : undefined;
+  const v = url.searchParams.get("v");
+  const seed = url.searchParams.get("seed");
+  const secret = process.env.CRON_SECRET || "super-secret-123";
 
-  const cfg = resolveSlot(slot);
+  if (ctx.params.key !== secret) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const slot = (ctx.params.slot || "morning") as Slot;
+  const { topic, tone, links } = resolveSlot(slot);
   const copy = composeSocial({
     slot,
-    topic: cfg.topic,
-    tone: cfg.tone,
-    links: cfg.links,
-    variant: v,
-    seed,
+    topic,
+    tone,
+    links,
+    variant: v ? Number(v) : undefined,
+    seed: seed ? Number(seed) : undefined,
     xSuffix: process.env.SOCIAL_X_SUFFIX,
   });
 
-  const result: Record<string, any> = { preview: copy };
+  const ch = channels();
+  const result: any = { preview: copy, slot, dry, used: ch };
+
   if (!dry) {
-    if (CHANNEL_X) result.x = await postToX(copy.x);
-    if (CHANNEL_TELEGRAM) result.telegram = await postToTelegram(copy.telegram);
-    if (CHANNEL_DISCORD) result.discord = await postToDiscord(copy.discord);
+    result.x = ch.x ? await postToX(copy.x) : { ok: false, skipped: true };
+    result.telegram = ch.telegram
+      ? await postToTelegram(copy.telegram)
+      : { ok: false, skipped: true };
+    result.discord = ch.discord
+      ? await postToDiscord(copy.discord)
+      : { ok: false, skipped: true };
   }
 
-  return NextResponse.json(
-    { ok: true, result: { slot, topic: cfg.topic, tone: cfg.tone, links: cfg.links, ...result, dry } },
-    { status: 200 },
-  );
+  return NextResponse.json({ ok: true, result });
 }

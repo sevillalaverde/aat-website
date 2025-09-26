@@ -1,220 +1,237 @@
 // src/lib/social.ts
+/* Utilities + posting helpers + copy composer for Social Agent */
+
 import { TwitterApi } from "twitter-api-v2";
 
-export type Slot = "morning" | "midday" | "evening";
-export type ComposeArgs = {
-  slot: Slot;
-  topic: string;
-  tone: string;
-  links: string[];
-  variant?: number;
-  seed?: number;
-  xSuffix?: string;
-};
-export type Composed = { x: string; telegram: string; discord: string };
+/* ------------ Channel toggles (read from env) ------------- */
+export const CHANNEL_X = (process.env.SOCIAL_CHANNEL_X || "true") === "true";
+export const CHANNEL_TELEGRAM =
+  (process.env.SOCIAL_CHANNEL_TELEGRAM || "true") === "true";
+export const CHANNEL_DISCORD =
+  (process.env.SOCIAL_CHANNEL_DISCORD || "true") === "true";
 
-/* ── utils ─────────────────────────────────────────────────────────────── */
-function hash(str: string) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
-  }
-  return h >>> 0;
-}
-function pick<T>(arr: T[], seed: number, salt = 0) {
-  const idx = Math.abs((seed + salt) % arr.length);
-  return arr[idx];
-}
-function clampX(msg: string) {
-  return msg.length <= 280 ? msg : msg.slice(0, 277) + "…";
-}
-const on = (v?: string, d = false) =>
-  typeof v === "string" ? /^(1|true|yes)$/i.test(v) : d;
-
-/* ── slot defaults ─────────────────────────────────────────────────────── */
-export function resolveSlot(slot: Slot) {
-  if (slot === "morning") {
-    return {
-      topic: process.env.SOCIAL_MORNING_TOPIC || "daily-brief",
-      tone: process.env.SOCIAL_MORNING_TONE || "credible",
-      links: (process.env.SOCIAL_MORNING_LINKS ||
-        "https://theaat.xyz/roadmap").split(/\s+/),
-    };
-  }
-  if (slot === "midday") {
-    return {
-      topic: process.env.SOCIAL_MIDDAY_TOPIC || "announcement",
-      tone: process.env.SOCIAL_MIDDAY_TONE || "educational",
-      links: (process.env.SOCIAL_MIDDAY_LINKS ||
-        "https://theaat.xyz/lab").split(/\s+/),
-    };
-  }
-  return {
-    topic: process.env.SOCIAL_EVENING_TOPIC || "community",
-    tone: process.env.SOCIAL_EVENING_TONE || "hype-minimal",
-    links: (process.env.SOCIAL_EVENING_LINKS ||
-      "https://x.com/aait_ai https://t.me/american_aat").split(/\s+/),
-  };
-}
-
-/* ── deterministic, varied composer (no LLM) ───────────────────────────── */
-function composeVariant2(args: ComposeArgs): Composed {
-  const { slot, topic, tone, links, seed: seedOverride, xSuffix } = args;
-
-  const now = new Date();
-  const key = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}:${slot}:${topic}:${tone}`;
-  const daySeed =
-    typeof seedOverride === "number"
-      ? seedOverride
-      : hash(key) + (parseInt(process.env.SOCIAL_SEED_OFFSET || "0", 10) || 0);
-
-  const link = links[0] || "https://theaat.xyz";
-  const suffix = (xSuffix || process.env.SOCIAL_X_SUFFIX || "").trim();
-  const suffixWithSpace = suffix ? ` ${suffix}` : "";
-
-  const hooksBrief = [
-    "AAT daily-brief",
-    "Quick AAT daily-brief",
-    "Today’s AAT brief",
-    "Market & protocol tick",
-    "New day, fresh signals",
-  ];
-  const hooksAnn = [
-    "New from the AI Lab",
-    "AAT update",
-    "Release note",
-    "Heads-up",
-    "What’s live",
-  ];
-  const hooksComm = [
-    "Community pulse",
-    "Holders update",
-    "Builders’ corner",
-    "What the community’s up to",
-    "Contributor highlights",
-  ];
-
-  const stylesCredible = [
-    "Not financial advice.",
-    "DYOR. This is informational only.",
-    "For research. No investment advice.",
-  ];
-  const stylesEdu = ["Learn more inside.", "Read the explainer.", "Breakdown in the thread."];
-  const stylesHype = ["Let’s build.", "Onwards.", "Alpha is earned.", "We keep shipping."];
-
-  const bulletsBrief = [
-    "Protocol roadmap checkpoints",
-    "AI agents reliability & guardrails",
-    "Ecosystem integrations",
-    "Community growth & content",
-    "Listings & liquidity planning",
-  ];
-  const bulletsAnn = [
-    "New tools in the AI Lab",
-    "Model routing & failovers",
-    "Better wallet UX",
-    "Token-gated features",
-    "Analytics previews",
-  ];
-  const bulletsComm = [
-    "New members & feedback",
-    "Ambassadors & spaces",
-    "Docs & tutorials",
-    "Open issues & PRs",
-    "Roadmap votes",
-  ];
-
-  const hook =
-    topic.includes("daily")
-      ? pick(hooksBrief, daySeed, 1)
-      : topic.includes("announce")
-      ? pick(hooksAnn, daySeed, 2)
-      : pick(hooksComm, daySeed, 3);
-
-  const bset =
-    topic.includes("daily")
-      ? bulletsBrief
-      : topic.includes("announce")
-      ? bulletsAnn
-      : bulletsComm;
-
-  const b1 = pick(bset, daySeed, 10);
-  let b2 = pick(bset, daySeed, 11);
-  if (b2 === b1) b2 = pick(bset, daySeed, 12);
-
-  const close =
-    tone.includes("credible")
-      ? pick(stylesCredible, daySeed, 20)
-      : tone.includes("educational")
-      ? pick(stylesEdu, daySeed, 21)
-      : pick(stylesHype, daySeed, 22);
-
-  const x = clampX(`${hook}: ${b1}; ${b2}. ${link}${suffixWithSpace} ${close}`);
-  const telegram = `${hook}.\n• ${b1}\n• ${b2}\n\n${link}\n\n${close}`;
-  const discord = `${hook} — discuss with the community.\n• ${b1}\n• ${b2}\n\n${link}\n\n${close}`;
-  return { x, telegram, discord };
-}
-
-export function composeSocial(args: ComposeArgs): Composed {
-  return composeVariant2(args);
-}
-
-/* ── channel toggles (both constants and helper for backwards-compat) ───── */
-export const CHANNEL_X = on(process.env.SOCIAL_CHANNEL_X, true);
-export const CHANNEL_TELEGRAM = on(process.env.SOCIAL_CHANNEL_TELEGRAM, true);
-export const CHANNEL_DISCORD = on(process.env.SOCIAL_CHANNEL_DISCORD, true);
-
+/** Convenience helper used by some routes */
 export function channels() {
   return { x: CHANNEL_X, telegram: CHANNEL_TELEGRAM, discord: CHANNEL_DISCORD };
 }
 
-/* ── posters ────────────────────────────────────────────────────────────── */
-export async function postToX(status: string) {
+/* ---------------- Slot config resolver -------------------- */
+export type Slot = "morning" | "midday" | "evening";
+
+export function resolveSlot(slot: Slot) {
+  // base defaults
+  const baseTopic = process.env.SOCIAL_TOPIC || "daily-brief";
+  const baseTone = process.env.SOCIAL_TONE || "credible";
+  const baseLinks = (process.env.SOCIAL_LINKS || "")
+    .split(" ")
+    .filter(Boolean);
+
+  // per-slot overrides
+  const up = (s: string) => s.toUpperCase();
+  const topic =
+    process.env[`SOCIAL_${up(slot)}_TOPIC`] || baseTopic;
+  const tone =
+    process.env[`SOCIAL_${up(slot)}_TONE`] || baseTone;
+  const links = (
+    process.env[`SOCIAL_${up(slot)}_LINKS`] || baseLinks.join(" ")
+  )
+    .split(" ")
+    .filter(Boolean);
+
+  return { topic, tone, links };
+}
+
+/* ---------------- Copy composer (with variants) ------------ */
+
+type ComposeIn = {
+  slot: Slot;
+  topic: string;
+  tone: string;
+  links: string[];
+  /** optional variant number (1..n). If omitted we pick based on seed. */
+  variant?: number;
+  /** deterministic seed; if omitted we derive from date+slot */
+  seed?: number;
+  /** optional X suffix (e.g., hashtags) */
+  xSuffix?: string;
+};
+
+type ComposeOut = {
+  x: string;
+  telegram: string;
+  discord: string;
+  meta: { seed: number; variant: number; picked: string[] };
+};
+
+/** tiny deterministic RNG */
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function todaySeed(slot: Slot) {
+  // seed by UTC yyyy-mm-dd + slot so each day+slot is stable/different
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth() + 1;
+  const d = now.getUTCDate();
+  const base = Number(`${y}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`);
+  const slotMap: Record<Slot, number> = { morning: 17, midday: 73, evening: 221 };
+  return base * 9973 + slotMap[slot];
+}
+
+const bulletLibrary = [
+  "Protocol roadmap checkpoints",
+  "AI agents reliability & guardrails",
+  "Community Q&A + highlights",
+  "New repo commits & docs",
+  "Partner + ecosystem notes",
+  "Gas, fees & network health",
+  "Market breadth / risk monitor",
+];
+
+const openers: Record<string, string[]> = {
+  "daily-brief": [
+    "AAT daily-brief.",
+    "Quick AAT daily-brief.",
+    "Today’s AAT update.",
+  ],
+  announcement: [
+    "AAT announcement.",
+    "Heads up from AAT.",
+    "Fresh news from AAT.",
+  ],
+  "token-update": [
+    "AAT token update.",
+    "Latest on $AAT.",
+    "Progress on $AAT.",
+  ],
+};
+
+function pickN(rng: () => number, arr: string[], n: number) {
+  const copy = [...arr];
+  const picked: string[] = [];
+  for (let i = 0; i < n && copy.length; i++) {
+    const idx = Math.floor(rng() * copy.length);
+    picked.push(copy.splice(idx, 1)[0]);
+  }
+  return picked;
+}
+
+export function composeSocial(input: ComposeIn): ComposeOut {
+  const seed = input.seed ?? todaySeed(input.slot);
+  const rng = mulberry32(seed);
+
+  const topic = input.topic;
+  const openerPool = openers[topic] || ["Update."];
+  // select variant 1..3 if not provided
+  const variant =
+    input.variant && input.variant > 0
+      ? input.variant
+      : Math.floor(rng() * 3) + 1;
+
+  const chosenOpener = openerPool[Math.floor(rng() * openerPool.length)];
+  const bullets = pickN(rng, bulletLibrary, 2 + Math.floor(rng() * 2)); // 2-3 bullets
+  const linksText =
+    input.links && input.links.length ? input.links.join(" ") : "";
+
+  const disclaimerX = "Not financial advice.";
+  const disclaimer = "For research. No investment advice.";
+
+  const xSuffix = input.xSuffix || (process.env.SOCIAL_X_SUFFIX || "").trim();
+
+  // craft bodies
+  const x =
+    `${chosenOpener}\n` +
+    bullets.map((b) => `• ${b}`).join("\n") +
+    (linksText ? `\n\n${linksText}` : "") +
+    (xSuffix ? ` ${xSuffix}` : "") +
+    ` ${disclaimerX}`;
+
+  const telegram =
+    `${chosenOpener}\n` +
+    bullets.map((b) => `• ${b}`).join("\n") +
+    (linksText ? `\n\n${linksText}` : "") +
+    `\n\n${disclaimer}`;
+
+  const discord =
+    `${chosenOpener}\n` +
+    bullets.map((b) => `• ${b}`).join("\n") +
+    (linksText ? `\n\n${linksText}` : "") +
+    `\n\n${disclaimer}`;
+
+  return { x, telegram, discord, meta: { seed, variant, picked: bullets } };
+}
+
+/* ---------------- Posting helpers ------------------------- */
+
+export async function postToX(text: string) {
   const key = process.env.TWITTER_APP_KEY!;
   const secret = process.env.TWITTER_APP_SECRET!;
   const accessToken = process.env.TWITTER_ACCESS_TOKEN!;
   const accessSecret = process.env.TWITTER_ACCESS_SECRET!;
-  if (!key || !secret || !accessToken || !accessSecret)
+
+  if (!key || !secret || !accessToken || !accessSecret) {
     return { ok: false as const, error: "Missing Twitter credentials" };
-
+  }
   try {
-    const client = new TwitterApi({ appKey: key, appSecret: secret, accessToken, accessSecret });
-    const { data } = await client.v2.tweet(status);
+    const client = new TwitterApi({
+      appKey: key,
+      appSecret: secret,
+      accessToken,
+      accessSecret,
+    });
+    const { data } = await client.v2.tweet(text);
     return { ok: true as const, id: data?.id };
-  } catch (e: any) {
-    return { ok: false as const, error: String(e?.message || e) };
+  } catch (err: any) {
+    return { ok: false as const, error: err?.message || String(err) };
   }
 }
 
-export async function postToTelegram(message: string) {
-  const token = process.env.TELEGRAM_BOT_TOKEN!;
-  const chatId = process.env.TELEGRAM_CHAT_ID!;
-  if (!token || !chatId) return { ok: false as const, error: "Missing Telegram env" };
+export async function postToTelegram(text: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) {
+    return { ok: false as const, error: "Missing Telegram credentials" };
+  }
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: message, disable_web_page_preview: false }),
-    });
-    const j = await res.json();
-    return j?.ok ? { ok: true as const, id: j?.result?.message_id } : { ok: false as const, error: j?.description || "telegram error" };
-  } catch (e: any) {
-    return { ok: false as const, error: String(e?.message || e) };
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          parse_mode: "HTML",
+          disable_web_page_preview: false,
+        }),
+      }
+    );
+    const json = await res.json();
+    if (!json.ok) return { ok: false as const, error: json.description };
+    return { ok: true as const, id: json.result?.message_id };
+  } catch (err: any) {
+    return { ok: false as const, error: err?.message || String(err) };
   }
 }
 
-export async function postToDiscord(message: string) {
-  const webhook = process.env.DISCORD_WEBHOOK_URL!;
-  if (!webhook) return { ok: false as const, error: "Missing Discord webhook" };
+export async function postToDiscord(text: string) {
+  const url = process.env.DISCORD_WEBHOOK_URL;
+  if (!url) return { ok: false as const, error: "Missing Discord webhook" };
   try {
-    const res = await fetch(webhook, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: message }),
+      body: JSON.stringify({ content: text }),
     });
-    return res.ok ? { ok: true as const } : { ok: false as const, error: `discord ${res.status}` };
-  } catch (e: any) {
-    return { ok: false as const, error: String(e?.message || e) };
+    if (!res.ok) return { ok: false as const, error: `HTTP ${res.status}` };
+    return { ok: true as const };
+  } catch (err: any) {
+    return { ok: false as const, error: err?.message || String(err) };
   }
 }
