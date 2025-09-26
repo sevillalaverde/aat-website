@@ -1,254 +1,217 @@
-// src/lib/social.ts
-import crypto from "crypto";
+/* src/lib/social.ts */
 import { TwitterApi } from "twitter-api-v2";
 
-export type Slot = "morning" | "midday" | "evening";
-export type Tone =
-  | "credible"
-  | "educational"
-  | "hype-minimal"
-  | "concise"
-  | "friendly";
-
-export type ComposeOpts = {
-  slot: Slot;
-  topic: string;          // e.g. daily-brief | announcement | token-update | community-cta | market-scan | dev-log | listing-watch | milestone
-  tone?: Tone;
-  links?: string[];       // one or more links to weave in
-  variant?: number;       // optional manual nudger (?v=2 etc.)
+/** ─────────────────────────────
+ *  Helpers: env + flags
+ *  ──────────────────────────── */
+const env = (k: string, d = "") => process.env[k] ?? d;
+const on = (v?: string, d = false) => {
+  if (!v) return d;
+  const s = v.toString().trim().toLowerCase();
+  return ["1", "true", "yes", "y"].includes(s);
 };
 
-export type ComposeOut = {
-  x: string;         // <= 280 chars
-  telegram: string;  // richer text OK
-  discord: string;   // discord/webhook text
+export type ComposeInput = {
+  slot: "morning" | "midday" | "evening";
+  topic?: string;
+  tone?: string;
+  links?: string[];
+  variant?: number;     // extra entropy knob (?v=2,3,…)
+  dateISO?: string;     // override for testing
 };
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Helpers
+export type ChannelBundle = {
+  x: string;
+  telegram: string;
+  discord: string;
+};
 
-const clamp = (s: string, n: number) =>
-  s.length <= n ? s : s.slice(0, Math.max(0, n - 1)) + "…";
+export const CHANNEL_X        = on(env("SOCIAL_CHANNEL_X"),        true);
+export const CHANNEL_TELEGRAM = on(env("SOCIAL_CHANNEL_TELEGRAM"), true);
+export const CHANNEL_DISCORD  = on(env("SOCIAL_CHANNEL_DISCORD"),  true);
 
-const pick = <T,>(arr: T[], idx: number) => arr[(idx % arr.length + arr.length) % arr.length];
-
-function seededIndex(seed: string, max: number) {
-  const h = crypto.createHash("sha256").update(seed).digest("hex");
-  // take 8 hex chars -> int
-  const val = parseInt(h.slice(0, 8), 16);
-  return val % max;
-}
-
-function bestLink(links?: string[]) {
-  if (!links?.length) return "https://theaat.xyz";
-  // prefer the first, but ensure it’s an absolute URL
-  const u = links[0].startsWith("http") ? links[0] : `https://${links[0]}`;
-  return u;
-}
-
-// Build short hashtag bundle with good rotation.
-function rotateTags(seed: string) {
-  const pools = [
-    ["#AAT", "#AI", "#crypto"],
-    ["#AAT", "#DeFi", "#AI"],
-    ["#AAT", "#AItrading", "#crypto"],
-    ["#AAT", "#Web3", "#AI"],
-    ["#AAT", "#OnchainAI", "#crypto"],
-  ];
-  return pools[seededIndex(seed, pools.length)].join(" ");
-}
-
-// ───────────────────────────────────────────────────────────────────────────────
-// Templates (lightweight, fast, varied)
-// Each topic has multiple patterns. We pick by seeded day+slot+variant,
-// so repeats across a day/slot still vary between runs, and across days it rotates.
-
-const TPL = {
-  "daily-brief": [
-    (link: string, tags: string) =>
-      `AAT status: daily brief. ${link} Not financial advice. ${tags}`,
-    (link: string, tags: string) =>
-      `Daily check-in from AAT. Key notes + roadmap at ${link} ${tags} Not financial advice.`,
-    (link: string, tags: string) =>
-      `Good ${new Date().getHours() < 12 ? "morning" : "day"} — AAT brief is live → ${link} ${tags} (NFA)`,
-  ],
-  announcement: [
-    (link: string, tags: string) =>
-      `New update from American AI. Full details: ${link} ${tags} Not financial advice.`,
-    (link: string, tags: string) =>
-      `Heads-up: fresh announcement. Read the post → ${link} ${tags} (NFA)`,
-    (link: string, tags: string) =>
-      `Shipping in public: new announcement from AAT → ${link} ${tags} Not financial advice.`,
-  ],
-  "token-update": [
-    (link: string, tags: string) =>
-      `Token update: progress & upcoming steps. ${link} ${tags} (NFA)`,
-    (link: string, tags: string) =>
-      `AAT token notes for holders & new readers → ${link} ${tags} Not financial advice.`,
-    (link: string, tags: string) =>
-      `Quick token update: roadmap checkpoints + next milestones → ${link} ${tags} (NFA)`,
-  ],
-  "community-cta": [
-    (link: string, tags: string) =>
-      `Join the convo, share feedback, help shape AAT. ${link} ${tags}`,
-    (link: string, tags: string) =>
-      `Community matters: jump in, ask, propose, build with us → ${link} ${tags}`,
-    (link: string, tags: string) =>
-      `New here? Say hi & grab the latest info → ${link} ${tags}`,
-  ],
-  "market-scan": [
-    (link: string, tags: string) =>
-      `Market scan (high level): signals + context. ${link} ${tags} Not financial advice.`,
-    (link: string, tags: string) =>
-      `Today’s market quick-take from AAT. ${link} ${tags} (NFA)`,
-    (link: string, tags: string) =>
-      `Macro & crypto pulse in one quick read → ${link} ${tags} Not financial advice.`,
-  ],
-  "dev-log": [
-    (link: string, tags: string) =>
-      `Dev log: fixes, speedups, experiments. ${link} ${tags}`,
-    (link: string, tags: string) =>
-      `Building in the open. Today’s dev notes → ${link} ${tags}`,
-    (link: string, tags: string) =>
-      `Changelog (short): improvements shipped & in progress → ${link} ${tags}`,
-  ],
-  "listing-watch": [
-    (link: string, tags: string) =>
-      `Listings watch: venues & meta distribution. ${link} ${tags}`,
-    (link: string, tags: string) =>
-      `Tracking listings & tokenlist coverage. Details → ${link} ${tags}`,
-    (link: string, tags: string) =>
-      `On our radar: listing venues + metadata sync → ${link} ${tags}`,
-  ],
-  milestone: [
-    (link: string, tags: string) =>
-      `Milestone reached ✅ — details & what’s next: ${link} ${tags}`,
-    (link: string, tags: string) =>
-      `W! New milestone shipped. Read more → ${link} ${tags}`,
-    (link: string, tags: string) =>
-      `Step forward for AAT — recap & next steps → ${link} ${tags}`,
-  ],
-} as const;
-
-function topicKey(t: string): keyof typeof TPL {
-  const k = t.toLowerCase();
-  if (k in TPL) return k as keyof typeof TPL;
-  return "daily-brief";
-}
-
-export function composeSocial(opts: ComposeOpts): ComposeOut {
-  const { slot, topic, links, variant = 0 } = opts;
-  const link = bestLink(links);
-  const day = new Date();
-  const dayKey = day.toISOString().slice(0, 10); // YYYY-MM-DD
-  const seed = `${dayKey}|${slot}|${topic}|${variant}`;
-
-  const pool = TPL[topicKey(topic)];
-  const idx = seededIndex(seed, pool.length);
-  const tags = rotateTags(seed);
-
-  // Twitter/X copy (≤ 280 chars). Slightly shorter, punchier.
-  const xRaw = pool[idx](link, tags);
-  const x = clamp(xRaw, 280);
-
-  // Telegram/Discord can be a bit roomier + different phrasing
-  const tgLead = [
-    "Today’s AAT update:",
-    "Quick AAT recap:",
-    "AAT daily-brief:",
-    "Fresh notes from American AI:",
-  ];
-  const dcLead = [
-    "AAT update:",
-    "Heads-up:",
-    "Daily-brief:",
-    "New note:",
-  ];
-
-  const tIdx = seededIndex(seed + "|tg", tgLead.length);
-  const dIdx = seededIndex(seed + "|dc", dcLead.length);
-
-  const telegram = `${tgLead[tIdx]} ${pool[idx](link, "")}\n\nNot financial advice.`;
-  const discord = `${dcLead[dIdx]} ${pool[idx](link, "")} Not financial advice.`;
-
-  return { x, telegram, discord };
-}
-
-// ───────────────────────────────────────────────────────────────────────────────
-// Posting helpers
-
-export async function postToX(status: string) {
-  if (!process.env.SOCIAL_CHANNEL_X || process.env.SOCIAL_CHANNEL_X.toLowerCase() !== "true") {
-    return { ok: false, skipped: true, reason: "SOCIAL_CHANNEL_X=false" };
+/** ─────────────────────────────
+ *  Seeded randomness by date+slot
+ *  ──────────────────────────── */
+function hashSeed(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
-  const appKey = process.env.TWITTER_APP_KEY;
-  const appSecret = process.env.TWITTER_APP_SECRET;
-  const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-  const accessSecret = process.env.TWITTER_ACCESS_SECRET;
+  return h >>> 0;
+}
+function pick<T>(seed: number, arr: T[]): T {
+  const idx = seed % arr.length;
+  return arr[idx];
+}
+function shuffle<T>(seed: number, arr: T[]) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const j = seed % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/** ─────────────────────────────
+ *  Content libraries (clean, safe)
+ *  ──────────────────────────── */
+const focuses = [
+  "market breadth & flows",
+  "on-chain activity & gas trends",
+  "macro headlines that matter",
+  "liquidity shifts & large wallet moves",
+  "builder news around AI + crypto",
+  "AAT roadmap progress & community wins",
+  "token research highlights from the Lab",
+  "security reminders & safety tips",
+];
+
+const ctas = [
+  "Join the discussion",
+  "Read more in the Lab",
+  "See the roadmap",
+  "Share your thoughts",
+  "Tell us what to cover next",
+  "Tap in with the community",
+];
+
+const linkDefaults = (slot: ComposeInput["slot"]) => {
+  // allow env overrides per-slot; fall back to base
+  const base = (env("SOCIAL_LINKS") || "").split(/\s+/).filter(Boolean);
+  const per = (env(`SOCIAL_${slot.toUpperCase()}_LINKS`) || "")
+    .split(/\s+/)
+    .filter(Boolean);
+  return per.length ? per : (base.length ? base : ["https://theaat.xyz/roadmap"]);
+};
+
+const topicDefaults: Record<ComposeInput["slot"], string> = {
+  morning: env("SOCIAL_MORNING_TOPIC") || env("SOCIAL_TOPIC") || "daily-brief",
+  midday:  env("SOCIAL_MIDDAY_TOPIC")  || env("SOCIAL_TOPIC") || "announcement",
+  evening: env("SOCIAL_EVENING_TOPIC") || env("SOCIAL_TOPIC") || "community",
+};
+
+const toneDefaults: Record<ComposeInput["slot"], string> = {
+  morning: env("SOCIAL_MORNING_TONE") || env("SOCIAL_TONE") || "credible",
+  midday:  env("SOCIAL_MIDDAY_TONE")  || env("SOCIAL_TONE") || "educational",
+  evening: env("SOCIAL_EVENING_TONE") || env("SOCIAL_TONE") || "hype-minimal",
+};
+
+const hashtagPools = [
+  ["#AAT", "#AI", "#Crypto"],
+  ["#AAT", "#DeFi", "#AI"],
+  ["#AAT", "#Onchain", "#AI"],
+  ["#AAT", "#Web3", "#AI"],
+];
+
+function smallTone(tone: string) {
+  const t = tone.toLowerCase();
+  if (t.includes("hype")) return ["Quick alpha:", "Heads up:", "Fast update:"];
+  if (t.includes("educ")) return ["Today’s read:", "Learn more:", "FYI:"];
+  return ["AAT update:", "Today’s brief:", "Status:"];
+}
+
+/** trim X to 280 hard */
+function clipX(msg: string) {
+  const HARD = 280;
+  if (msg.length <= HARD) return msg;
+  // try dropping hashtags if needed
+  const parts = msg.split(" ");
+  const keep = parts.filter((p) => !p.startsWith("#"));
+  let s = keep.join(" ");
+  if (s.length > HARD) s = s.slice(0, HARD - 1) + "…";
+  return s;
+}
+
+/** ─────────────────────────────
+ *  Compose: deterministic variety
+ *  ──────────────────────────── */
+export function composeSocial(input: ComposeInput): ChannelBundle {
+  const slot  = input.slot;
+  const dateISO = input.dateISO || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const topic = (input.topic || topicDefaults[slot]).toLowerCase();
+  const tone  = (input.tone || toneDefaults[slot]).toLowerCase();
+  const links = (input.links && input.links.length ? input.links : linkDefaults(slot));
+
+  const baseSeed = hashSeed([dateISO, slot, topic, tone, String(input.variant ?? 0)].join("|"));
+
+  const intro = pick(baseSeed, smallTone(tone));
+  const focus = pick(baseSeed + 11, focuses);
+  const cta   = pick(baseSeed + 23, ctas);
+  const tags  = pick(baseSeed + 47, hashtagPools).join(" ");
+
+  const link = pick(baseSeed + 71, links);
+
+  const nf = "Not financial advice.";
+
+  // micro-templates rotate with seed
+  const tA = `${intro} ${topic.replace("-", " ")}. ${cta}. ${link} ${nf}`;
+  const tB = `${intro} ${topic.replace("-", " ")} — ${focus}. ${link} ${tags} ${nf}`;
+  const tC = `AAT ${topic}: ${focus}. ${link} ${nf}`;
+
+  const ordered = shuffle(baseSeed, [tA, tB, tC]);
+  const x = clipX(ordered[0]);
+
+  // Telegram & Discord get a bit longer block style
+  const tele = `${intro} ${topic.replace("-", " ")}.\n\n${link}\n\n${nf}`;
+  const disc = `AAT ${topic}. Discuss with the community. ${link} ${nf}`;
+
+  return { x, telegram: tele, discord: disc };
+}
+
+/** ─────────────────────────────
+ *  Posting helpers
+ *  ──────────────────────────── */
+export async function postToX(status: string) {
+  const appKey = env("TWITTER_APP_KEY");
+  const appSecret = env("TWITTER_APP_SECRET");
+  const accessToken = env("TWITTER_ACCESS_TOKEN");
+  const accessSecret = env("TWITTER_ACCESS_SECRET");
 
   if (!appKey || !appSecret || !accessToken || !accessSecret) {
-    return { ok: false, error: "Missing X/Twitter credentials" };
+    return { ok: false, error: "X credentials missing" as const };
   }
 
   try {
-    const client = new TwitterApi({ appKey, appSecret, accessToken, accessSecret });
-    const res = await client.v2.tweet(status);
-    return { ok: true, id: res?.data?.id };
-  } catch (err: any) {
-    // Surface common causes cleanly (401 write perms; 187 duplicate; 403 policy)
-    const msg =
-      err?.data?.detail ||
-      err?.message ||
-      "Unknown X error";
-    return { ok: false, error: msg, code: err?.code || err?.status };
+    const client = new TwitterApi({
+      appKey, appSecret, accessToken, accessSecret
+    });
+    const tweet = await client.v2.tweet(status);
+    return { ok: true, id: tweet.data?.id };
+  } catch (e: any) {
+    return { ok: false, error: String(e?.message || e) };
   }
 }
 
 export async function postToTelegram(text: string) {
-  if (!process.env.SOCIAL_CHANNEL_TELEGRAM || process.env.SOCIAL_CHANNEL_TELEGRAM.toLowerCase() !== "true") {
-    return { ok: false, skipped: true, reason: "SOCIAL_CHANNEL_TELEGRAM=false" };
-  }
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return { ok: false, error: "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID" };
+  const token = env("TELEGRAM_BOT_TOKEN");
+  const chatId = env("TELEGRAM_CHAT_ID");
+  if (!token || !chatId) return { ok: false, error: "Telegram env missing" as const };
 
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const body = {
-    chat_id: chatId,
-    text,
-    disable_web_page_preview: false,
-  };
-
-  try {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const j = await r.json();
-    if (!j?.ok) return { ok: false, error: j?.description || "Telegram error" };
-    return { ok: true, id: j?.result?.message_id };
-  } catch (e: any) {
-    return { ok: false, error: e?.message || "Telegram error" };
-  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      disable_web_page_preview: false,
+    }),
+  });
+  const j = await res.json();
+  return j?.ok ? { ok: true, id: j?.result?.message_id } : { ok: false, error: j?.description || "TG error" };
 }
 
-export async function postToDiscord(text: string) {
-  if (!process.env.SOCIAL_CHANNEL_DISCORD || process.env.SOCIAL_CHANNEL_DISCORD.toLowerCase() !== "true") {
-    return { ok: false, skipped: true, reason: "SOCIAL_CHANNEL_DISCORD=false" };
-  }
-  const hook = process.env.DISCORD_WEBHOOK_URL;
-  if (!hook) return { ok: false, error: "Missing DISCORD_WEBHOOK_URL" };
-
-  try {
-    const r = await fetch(hook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: text }),
-    });
-    if (!r.ok) return { ok: false, error: `Discord HTTP ${r.status}` };
-    return { ok: true };
-  } catch (e: any) {
-    return { ok: false, error: e?.message || "Discord error" };
-  }
+export async function postToDiscord(content: string) {
+  const webhook = env("DISCORD_WEBHOOK_URL");
+  if (!webhook) return { ok: false, error: "Discord webhook missing" as const };
+  const r = await fetch(webhook, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  return r.ok ? { ok: true } : { ok: false, error: `Discord ${r.status}` };
 }
